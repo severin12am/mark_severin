@@ -368,8 +368,8 @@ async function loadAppThumb(container, item) {
 }
 
 async function loadCardPreview(container, item) {
-  const videoSrc = await findFirstExisting(previewPaths(item, 'video'));
-  const imageSrc = videoSrc ? null : await findFirstExisting(previewPaths(item, 'image'));
+  const imageSrc = await findFirstExisting(previewPaths(item, 'image'));
+  const videoSrc = imageSrc ? null : await findFirstExisting(previewPaths(item, 'video'));
 
   container.innerHTML = '';
   const badge = document.createElement('div');
@@ -409,6 +409,12 @@ async function findFirstExisting(paths) {
 }
 
 function probeMedia(path) {
+  if (location.protocol === 'http:' || location.protocol === 'https:') {
+    return fetch(path, { method: 'HEAD', cache: 'force-cache' })
+      .then((res) => res.ok)
+      .catch(() => false);
+  }
+
   const ext = path.split('.').pop().toLowerCase();
   const isVideo = ext === 'mp4' || ext === 'webm';
   return new Promise((resolve) => {
