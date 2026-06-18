@@ -204,7 +204,34 @@ function itemBasePath(item) {
 
 function previewPaths(item, kind) {
   const base = itemBasePath(item);
+  if (item.preview) {
+    const explicit = `${base}/${item.preview}`;
+    const ext = item.preview.split('.').pop().toLowerCase();
+    const isVideo = ext === 'mp4' || ext === 'webm';
+    if (kind === 'video' && isVideo) return [explicit];
+    if (kind === 'image' && !isVideo) return [explicit];
+    if (kind === 'image' && isVideo) return [];
+    if (kind === 'video' && !isVideo) return [];
+  }
   return PREVIEW_NAMES[kind].map((name) => `${base}/${name}`);
+}
+
+const previewQueue = [];
+let previewQueueActive = false;
+
+function enqueuePreviewLoad(container, item) {
+  previewQueue.push({ container, item });
+  drainPreviewQueue();
+}
+
+async function drainPreviewQueue() {
+  if (previewQueueActive) return;
+  previewQueueActive = true;
+  while (previewQueue.length) {
+    const job = previewQueue.shift();
+    await loadCardPreview(job.container, job.item);
+  }
+  previewQueueActive = false;
 }
 
 function appImagePaths(item) {
@@ -315,8 +342,7 @@ function renderGames(items) {
   grid.querySelectorAll('.card').forEach((card) => {
     const id = card.dataset.id;
     const item = catalog.games.find((i) => i.id === id);
-    loadCardPreview(card.querySelector('.card-preview'), item);
-    if (item?.unity) prefetchUnityBuild();
+    enqueuePreviewLoad(card.querySelector('.card-preview'), item);
     card.addEventListener('mouseenter', () => {
       if (item?.unity) prefetchUnityBuild();
     });
@@ -368,14 +394,40 @@ async function loadAppThumb(container, item) {
 }
 
 async function loadCardPreview(container, item) {
-  const imageSrc = await findFirstExisting(previewPaths(item, 'image'));
-  const videoSrc = imageSrc ? null : await findFirstExisting(previewPaths(item, 'video'));
-
-  container.innerHTML = '';
   const badge = document.createElement('div');
   badge.className = 'play-badge';
   badge.innerHTML =
     '<svg width="18" height="18" viewBox="0 0 24 24" fill="white"><path d="M8 5v14l11-7z"/></svg>';
+
+  container.innerHTML = '';
+
+  if (item.preview) {
+    const src = `${itemBasePath(item)}/${item.preview}`;
+    const ext = item.preview.split('.').pop().toLowerCase();
+    const isVideo = ext === 'mp4' || ext === 'webm';
+    const media = isVideo ? document.createElement('video') : document.createElement('img');
+    media.src = src;
+    if (!isVideo) {
+      media.alt = localized(item, 'title');
+      media.loading = 'lazy';
+    } else {
+      media.muted = true;
+      media.loop = true;
+      media.playsInline = true;
+      media.autoplay = true;
+    }
+    media.onerror = () => {
+      container.innerHTML = '';
+      container.appendChild(makePreviewPlaceholder());
+      container.appendChild(badge);
+    };
+    container.appendChild(media);
+    container.appendChild(badge);
+    return;
+  }
+
+  const imageSrc = await findFirstExisting(previewPaths(item, 'image'));
+  const videoSrc = imageSrc ? null : await findFirstExisting(previewPaths(item, 'video'));
 
   if (videoSrc) {
     const video = document.createElement('video');
@@ -389,16 +441,20 @@ async function loadCardPreview(container, item) {
     const img = document.createElement('img');
     img.src = imageSrc;
     img.alt = localized(item, 'title');
-    img.loading = 'eager';
+    img.loading = 'lazy';
     container.appendChild(img);
   } else {
-    const ph = document.createElement('div');
-    ph.className = 'card-preview-placeholder';
-    ph.textContent = '🎮';
-    container.appendChild(ph);
+    container.appendChild(makePreviewPlaceholder());
   }
 
   container.appendChild(badge);
+}
+
+function makePreviewPlaceholder() {
+  const ph = document.createElement('div');
+  ph.className = 'card-preview-placeholder';
+  ph.textContent = '🎮';
+  return ph;
 }
 
 async function findFirstExisting(paths) {
@@ -409,16 +465,14 @@ async function findFirstExisting(paths) {
 }
 
 function probeMedia(path) {
-  if (location.protocol === 'http:' || location.protocol === 'https:') {
-    return fetch(path, { method: 'HEAD', cache: 'force-cache' })
-      .then((res) => res.ok)
-      .catch(() => false);
-  }
-
   const ext = path.split('.').pop().toLowerCase();
   const isVideo = ext === 'mp4' || ext === 'webm';
-  return new Promise((resolve) => {
-    if (isVideo) {
+
+  if (isVideo) {
+    if (location.protocol === 'http:' || location.protocol === 'https:') {
+      return Promise.resolve(false);
+    }
+    return new Promise((resolve) => {
       const video = document.createElement('video');
       video.preload = 'metadata';
       const done = (ok) => {
@@ -429,8 +483,10 @@ function probeMedia(path) {
       video.onloadedmetadata = () => done(true);
       video.onerror = () => done(false);
       video.src = path;
-      return;
-    }
+    });
+  }
+
+  return new Promise((resolve) => {
     const img = new Image();
     const done = (ok) => {
       img.onload = null;

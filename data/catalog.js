@@ -18,7 +18,8 @@ window.GAME_CATALOG = {
         "en": "Neon maze race — reach the gate before the ruins collapse."
       },
       "tags": ["maze", "arcade"],
-      "featured": true
+      "featured": true,
+      "preview": "preview.gif"
     },
     {
       "id": "orbitapong",
@@ -30,7 +31,8 @@ window.GAME_CATALOG = {
         "en": "Orbital pong — bounce the ball through gravity fields in a cosmic arcade."
       },
       "tags": ["arcade", "2 player"],
-      "featured": true
+      "featured": true,
+      "preview": "preview.png"
     },
     {
       "id": "rotatris",
@@ -42,7 +44,8 @@ window.GAME_CATALOG = {
         "en": "Tetris reimagined — rotate the whole board and clear perimeter rings."
       },
       "tags": ["arcade", "puzzle"],
-      "featured": false
+      "featured": false,
+      "preview": "preview.png"
     },
     {
       "id": "nucleon",
@@ -54,7 +57,8 @@ window.GAME_CATALOG = {
         "en": "Atomic puzzle — split atoms and survive the chain reaction."
       },
       "tags": ["puzzle", "physics"],
-      "featured": false
+      "featured": false,
+      "preview": "preview.gif"
     },
     {
       "id": "mozgoput",
@@ -65,7 +69,8 @@ window.GAME_CATALOG = {
         "ru": "Найди невозможную связь — головоломка на бумажном столе, где пути ведут себя не так, как кажется."
       },
       "tags": ["puzzle", "words"],
-      "featured": true
+      "featured": true,
+      "preview": "preview.png"
     },
     {
       "id": "lest",
@@ -76,7 +81,8 @@ window.GAME_CATALOG = {
         "ru": "Словесная лестница — строй цепочки русских слов, меняя по одной букве за шаг."
       },
       "tags": ["words", "puzzle"],
-      "featured": false
+      "featured": false,
+      "preview": "preview.png"
     },
     {
       "id": "50games",
@@ -89,7 +95,8 @@ window.GAME_CATALOG = {
         "ru": "Турнир — 50 быстрых мини-игр для двух игроков на одном экране."
       },
       "tags": ["party", "2 player"],
-      "featured": true
+      "featured": true,
+      "preview": "preview.png"
     },
     {
       "id": "bugeaters",
@@ -102,7 +109,8 @@ window.GAME_CATALOG = {
         "en": "You either eat or get eaten - one winner in the entire world"
       },
       "tags": ["arcade", "survival"],
-      "featured": false
+      "featured": false,
+      "preview": "preview.gif"
     },
     {
       "id": "savebruge",
