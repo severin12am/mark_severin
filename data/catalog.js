@@ -32,7 +32,7 @@ window.GAME_CATALOG = {
       },
       "tags": ["arcade", "2 player"],
       "featured": true,
-      "preview": "preview.png"
+      "preview": "preview.mp4"
     },
     {
       "id": "rotatris",
@@ -45,7 +45,7 @@ window.GAME_CATALOG = {
       },
       "tags": ["arcade", "puzzle"],
       "featured": false,
-      "preview": "preview.png"
+      "preview": "preview.mp4"
     },
     {
       "id": "nucleon",
@@ -110,7 +110,7 @@ window.GAME_CATALOG = {
       },
       "tags": ["arcade", "survival"],
       "featured": false,
-      "preview": "preview.gif"
+      "preview": "preview.mp4"
     },
     {
       "id": "savebruge",
