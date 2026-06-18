@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>2 Player Challenge: Tournament Edition</title>
+<style>
+    /* =========================================
+       CENTRAL THEME CONFIGURATION (CSS)
+       ========================================= */
+    :root {
+        --bg-color: #1a1a1a;
+        --text-color: #f0f0f0;
+        --accent-color: #00d2ff;
+        --p1-color: #ff4757;
+        --p2-color: #2ed573;
+        --font-main: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    body {
+        margin: 0; padding: 0;
+        background-color: var(--bg-color); color: var(--text-color);
+        font-family: var(--font-main);
+        display: flex; flex-direction: column; align-items: center; justify-content: center;
+        height: 100vh; overflow: hidden;
+    }
+
+    #game-container { position: relative; box-shadow: 0 0 20px rgba(0,0,0,0.5); border: 4px solid #333; }
+    canvas { display: block; background-color: #000; }
+
+    .overlay {
+        position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+        display: flex; flex-direction: column; align-items: center; justify-content: center;
+        background: rgba(0, 0, 0, 0.9); z-index: 10;
+    }
+
+    .hidden { display: none !important; }
+
+    h1 { font-size: 2.5rem; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 2px; color: var(--accent-color); text-align: center; }
+    h2 { font-size: 1.5rem; margin-bottom: 20px; color: #fff; }
+    p { max-width: 600px; text-align: center; margin-bottom: 30px; color: #ccc; line-height: 1.5; }
+
+    .btn-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; margin-bottom: 20px; width: 80%; max-width: 500px; }
+    
+    button {
+        background: var(--accent-color); border: none; padding: 15px 20px;
+        font-size: 1.1rem; color: #000; font-weight: bold; cursor: pointer;
+        border-radius: 4px; transition: transform 0.1s, filter 0.2s; width: 100%;
+    }
+    button:hover { filter: brightness(1.1); transform: translateY(-2px); }
+    .btn-secondary { background: #555; color: white; }
+    .btn-large { grid-column: span 2; padding: 20px; font-size: 1.3rem; }
+
+    /* HUD */
+    #hud {
+        position: absolute; top: 10px; left: 0; width: 100%;
+        display: flex; flex-direction: column; align-items: center; pointer-events: none; z-index: 5;
+    }
+    .hud-row { display: flex; justify-content: space-between; width: 100%; padding: 0 20px; box-sizing: border-box; font-size: 1.5rem; font-weight: bold; }
+    #tournament-hud { font-size: 1rem; color: #ffd700; background: rgba(0,0,0,0.5); padding: 5px 15px; border-radius: 15px; margin-top: 5px; }
+    
+    .score-p1 { color: var(--p1-color); }
+    .score-p2 { color: var(--p2-color); }
+
+    #controls-hint {
+        position: absolute; bottom: 10px; left: 0; width: 100%; text-align: center; font-size: 0.9rem; opacity: 0.7; pointer-events: none;
+    }
+
+    .tourney-standings { font-size: 2rem; margin: 20px 0; background: #222; padding: 20px; border-radius: 10px; border: 2px solid #555;}
+</style>
+</head>
+<body>
+
+<div id="game-container">
+    <canvas id="gameCanvas" width="800" height="600"></canvas>
+    
+    <!-- HUD -->
+    <div id="hud" class="hidden">
+        <div class="hud-row">
+            <span id="score-p1-display" class="score-p1">P1: 0</span>
+            <span id="game-title-display" style="color:var(--accent-color)">GAME NAME</span>
+            <span id="score-p2-display" class="score-p2">P2: 0</span>
+        </div>
+        <div id="tournament-hud" class="hidden">Round 1/7 | Tourney: 0 - 0</div>
+    </div>
+
+    <!-- Multi-purpose Menu Screen -->
+    <div id="menu-screen" class="overlay">
+        <h1 id="menu-title">2 Player Challenge</h1>
+        <p id="menu-desc">Welcome! Choose your configuration to begin.</p>
+        <div class="btn-grid" id="menu-buttons"></div>
+    </div>
+
+    <!-- Regular Game Over Screen -->
+    <div id="game-over-screen" class="overlay hidden">
+        <h1 id="winner-text">PLAYER 1 WINS!</h1>
+        <p id="final-score"></p>
+        <div class="btn-grid">
+            <button onclick="GameManager.restartGame()">Play Again</button>
+            <button class="btn-secondary" onclick="GameManager.showMenu('PLAYERS')">Main Menu</button>
+        </div>
+    </div>
+
+    <!-- Tournament Standings Screen -->
+    <div id="tournament-screen" class="overlay hidden">
+        <h1 id="tourney-title">Round Over!</h1>
+        <h2 id="tourney-subtitle">Player 1 won that game.</h2>
+        <div class="tourney-standings">
+            <span class="score-p1">P1: <span id="t-score-p1">0</span></span>
+            <span style="color:#fff; margin: 0 20px;">-</span>
+            <span class="score-p2">P2: <span id="t-score-p2">0</span></span>
+        </div>
+        <div class="btn-grid" id="tourney-buttons">
+            <button class="btn-large" id="btn-next-round" onclick="GameManager.nextTournamentRound()">Next Game</button>
+            <button class="btn-large btn-secondary" onclick="GameManager.showMenu('PLAYERS')">Quit Tournament</button>
+        </div>
+    </div>
+
+    <!-- Pause Screen -->
+    <div id="pause-screen" class="overlay hidden">
+        <h1>PAUSED</h1>
+        <p>Press ESC to resume.</p>
+        <button class="btn-secondary" onclick="GameManager.showMenu('PLAYERS')">Quit to Menu</button>
+    </div>
+
+    <div id="controls-hint" class="hidden">P1: WASD | P2: Arrows</div>
+</div>
+
+<script>
+/**
+ * CENTRAL THEME CONFIGURATION
+ */
+const Theme = {
+    bg: '#000000', fg: '#ffffff',
+    p1: '#ff4757', p2: '#2ed573', accent: '#00d2ff',
+};
+
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+
+// -- INPUT HANDLER --
+class InputHandler {
+    constructor() {
+        this.keys = {};
+        window.addEventListener('keydown', e => {
+            if(["Space","ArrowUp","ArrowDown","ArrowLeft","ArrowRight"].includes(e.code)) e.preventDefault();
+            this.keys[e.code] = true;
+            if (e.code === 'Escape') GameManager.togglePause();
+        });
+        window.addEventListener('keyup', e => { this.keys[e.code] = false; });
+    }
+    isDown(code) { return !!this.keys[code]; }
+}
+const Input = new InputHandler();
+
+// -- BASE GAME CLASS --
+class GameBase {
+    constructor(name, description) {
+        this.name = name; this.description = description;
+        this.scoreP1 = 0; this.scoreP2 = 0;
+        this.width = 800; this.height = 600;
+    }
+    init(w, h) { this.width = w; this.height = h; }
+    update(dt) {}
+    render(ctx) {}
+}
+
+// -- CORE ENGINE --
+class GameEngine {
+    constructor() {
+        this.gamesList = [];
+        this.currentGame = null;
+        this.state = 'MENU'; // MENU, PLAYING, PAUSED, OVER, TOURNAMENT_UI
+        this.lastTime = 0;
+        
+        // Settings
+        this.isSinglePlayer = false; // Accessible by games for AI logic
+        this.isTournament = false;
+
+        // Tournament State
+        this.tGames = [];
+        this.tRound = 0; // 0 to 6
+        this.tScoreP1 = 0;
+        this.tScoreP2 = 0;
+    }
+
+    registerGame(gameInstance) { this.gamesList.push(gameInstance); }
+
+    start() {
+        this.showMenu('PLAYERS');
+        requestAnimationFrame(t => this.loop(t));
+    }
+
+    /** 
+     * DYNAMIC MENU SYSTEM 
+     */
+    showMenu(menuState) {
+        this.state = 'MENU';
+        document.querySelectorAll('.overlay').forEach(el => el.classList.add('hidden'));
+        document.getElementById('menu-screen').classList.remove('hidden');
+        document.getElementById('hud').classList.add('hidden');
+        document.getElementById('controls-hint').classList.add('hidden');
+
+        const title = document.getElementById('menu-title');
+        const desc = document.getElementById('menu-desc');
+        const btns = document.getElementById('menu-buttons');
+        btns.innerHTML = '';
+
+        if (menuState === 'PLAYERS') {
+            title.innerText = "2 Player Challenge";
+            desc.innerText = "Select number of players.";
+            
+            this.createBtn(btns, "1 Player (vs CPU)", () => { this.isSinglePlayer = true; this.showMenu('MODE'); });
+            this.createBtn(btns, "2 Players (Local)", () => { this.isSinglePlayer = false; this.showMenu('MODE'); });
+        } 
+        else if (menuState === 'MODE') {
+            title.innerText = "Select Mode";
+            desc.innerText = "Play a single game or a full 7-game tournament.";
+            
+            this.createBtn(btns, "Regular (1 Game)", () => { this.isTournament = false; this.showMenu('SELECT'); });
+            this.createBtn(btns, "Tournament (7 Games)", () => { this.startTournament(); });
+            this.createBtn(btns, "Back", () => this.showMenu('PLAYERS'), true);
+        }
+        else if (menuState === 'SELECT') {
+            title.innerText = "Select Game";
+            desc.innerText = "Choose a minigame to play.";
+            
+            this.gamesList.forEach((g, index) => {
+                this.createBtn(btns, g.name, () => this.startGame(index));
+            });
+            this.createBtn(btns, "Back", () => this.showMenu('MODE'), true);
+        }
+    }
+
+    createBtn(container, text, onclick, isSecondary = false) {
+        const btn = document.createElement('button');
+        btn.innerText = text;
+        if (isSecondary) {
+            btn.classList.add('btn-secondary');
+            btn.style.gridColumn = "span 2";
+        }
+        btn.onclick = onclick;
+        container.appendChild(btn);
+    }
+
+    /** 
+     * TOURNAMENT LOGIC 
+     */
+    startTournament() {
+        this.isTournament = true;
+        this.tScoreP1 = 0; this.tScoreP2 = 0; this.tRound = 0;
+        
+        // Pick 7 unique games randomly (if less than 7 exist, it will loop and refill)
+        this.tGames = [];
+        let available = [...Array(this.gamesList.length).keys()];
+        for(let i=0; i<7; i++) {
+            if(available.length === 0) available = [...Array(this.gamesList.length).keys()];
+            let randIdx = Math.floor(Math.random() * available.length);
+            this.tGames.push(available[randIdx]);
+            available.splice(randIdx, 1);
+        }
+        
+        this.nextTournamentRound();
+    }
+
+    nextTournamentRound() {
+        if (this.tRound >= 7) {
+            this.showMenu('PLAYERS'); return;
+        }
+        let nextGameIdx = this.tGames[this.tRound];
+        this.startGame(nextGameIdx);
+    }
+
+    /** 
+     * CORE GAME FLOW 
+     */
+    startGame(index) {
+        this.currentGame = this.gamesList[index];
+        this.state = 'PLAYING';
+        
+        document.querySelectorAll('.overlay').forEach(el => el.classList.add('hidden'));
+        document.getElementById('hud').classList.remove('hidden');
+        document.getElementById('controls-hint').classList.remove('hidden');
+        
+        document.getElementById('game-title-display').innerText = this.currentGame.name;
+        
+        let tHud = document.getElementById('tournament-hud');
+        if (this.isTournament) {
+            tHud.classList.remove('hidden');
+            tHud.innerText = `Round ${this.tRound + 1}/7 | Tourney: ${this.tScoreP1} - ${this.tScoreP2}`;
+        } else {
+            tHud.classList.add('hidden');
+        }
+
+        // Init P2 text based on single player
+        let p2Text = this.isSinglePlayer ? "P2 (CPU): " : "P2: ";
+        document.getElementById('score-p2-display').innerText = p2Text + "0";
+
+        this.currentGame.init(canvas.width, canvas.height);
+    }
+
+    togglePause() {
+        if (this.state === 'PLAYING') {
+            this.state = 'PAUSED';
+            document.getElementById('pause-screen').classList.remove('hidden');
+        } else if (this.state === 'PAUSED') {
+            this.state = 'PLAYING';
+            document.getElementById('pause-screen').classList.add('hidden');
+        }
+    }
+
+    gameOver(winner) {
+        document.getElementById('hud').classList.add('hidden');
+        document.getElementById('controls-hint').classList.add('hidden');
+        
+        if (this.isTournament) {
+            this.state = 'TOURNAMENT_UI';
+            
+            // Add points (1 point to winner, 0 for draw)
+            let winText = "Draw! No points awarded.";
+            if (winner === 1) { this.tScoreP1++; winText = "Player 1 won the round!"; }
+            else if (winner === 2) { 
+                this.tScoreP2++; 
+                winText = this.isSinglePlayer ? "CPU won the round!" : "Player 2 won the round!"; 
+            }
+            
+            this.tRound++; // Advance round
+            
+            // Show Screen
+            const tScreen = document.getElementById('tournament-screen');
+            tScreen.classList.remove('hidden');
+            document.getElementById('t-score-p1').innerText = this.tScoreP1;
+            document.getElementById('t-score-p2').innerText = this.tScoreP2;
+            document.getElementById('tourney-subtitle').innerText = winText;
+
+            // Check if tournament is completely over
+            if (this.tRound >= 7) {
+                document.getElementById('tourney-title').innerText = "TOURNAMENT COMPLETE";
+                let finalWinner = "IT'S A TIE!";
+                if (this.tScoreP1 > this.tScoreP2) finalWinner = "PLAYER 1 IS THE CHAMPION!";
+                else if (this.tScoreP2 > this.tScoreP1) finalWinner = (this.isSinglePlayer ? "CPU" : "PLAYER 2") + " IS THE CHAMPION!";
+                
+                document.getElementById('tourney-subtitle').innerText = finalWinner;
+                
+                let nxtBtn = document.getElementById('btn-next-round');
+                nxtBtn.innerText = "Finish Tournament";
+                nxtBtn.onclick = () => this.showMenu('PLAYERS');
+            } else {
+                document.getElementById('tourney-title').innerText = `Round ${this.tRound} Over!`;
+                let nxtBtn = document.getElementById('btn-next-round');
+                nxtBtn.innerText = "Start Next Game";
+                nxtBtn.onclick = () => this.nextTournamentRound();
+            }
+
+        } else {
+            // REGULAR GAME OVER
+            this.state = 'OVER';
+            const screen = document.getElementById('game-over-screen');
+            const title = document.getElementById('winner-text');
+            const scoreTxt = document.getElementById('final-score');
+            
+            screen.classList.remove('hidden');
+            if (winner === 1) { title.innerText = "PLAYER 1 WINS!"; title.style.color = Theme.p1; } 
+            else if (winner === 2) { title.innerText = (this.isSinglePlayer ? "CPU WINS!" : "PLAYER 2 WINS!"); title.style.color = Theme.p2; } 
+            else { title.innerText = "DRAW!"; title.style.color = Theme.accent; }
+
+            let s1 = this.currentGame.scoreP1 || 0;
+            let s2 = this.currentGame.scoreP2 || 0;
+            scoreTxt.innerText = `Final Score: ${s1} - ${s2}`;
+        }
+    }
+
+    restartGame() {
+        document.getElementById('game-over-screen').classList.add('hidden');
+        this.startGame(this.gamesList.indexOf(this.currentGame)); // Restart current
+    }
+
+    updateHUD() {
+        if (this.currentGame && this.state === 'PLAYING') {
+            document.getElementById('score-p1-display').innerText = `P1: ${this.currentGame.scoreP1}`;
+            let p2Label = this.isSinglePlayer ? "CPU: " : "P2: ";
+            document.getElementById('score-p2-display').innerText = `${p2Label}${this.currentGame.scoreP2}`;
+        }
+    }
+
+    loop(timestamp) {
+        const dt = (timestamp - this.lastTime) / 1000; 
+        this.lastTime = timestamp;
+
+        if (this.state === 'PLAYING') {
+            ctx.fillStyle = Theme.bg;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            this.currentGame.update(dt);
+            this.currentGame.render(ctx);
+            this.updateHUD();
+        } else if (this.state !== 'PLAYING') {
+             // Static background for menus/overlays
+             ctx.fillStyle = Theme.bg;
+             ctx.fillRect(0, 0, canvas.width, canvas.height);
+        }
+
+        requestAnimationFrame(t => this.loop(t));
+    }
+}
+
+// Instantiate Engine
+window.GameManager = new GameEngine();
+</script>
+
+<!-- ========================================================
+     LOAD YOUR INDIVIDUAL GAME FILES HERE
+     ======================================================== -->
+<script src="games/pong.js"></script>
+<script src="games/airhockey.js"></script>
+<script src="games/snake.js"></script>
+<script src="games/sumo.js"></script>
+<script src="games/tanks.js"></script>
+<script src="games/spaceduel.js"></script>
+<script src="games/tugofwar.js"></script>
+<script src="games/coinrush.js"></script>
+<script src="games/flappy.js"></script>
+<script src="games/dodge.js"></script>
+
+<script>
+    window.onload = () => { GameManager.start(); };
+</script>
+</body>
+</html>

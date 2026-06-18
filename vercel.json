@@ -1,0 +1,25 @@
+{
+  "headers": [
+    {
+      "source": "/games/BugEaters/Build/(.*)\\.wasm\\.br",
+      "headers": [
+        { "key": "Content-Type", "value": "application/wasm" },
+        { "key": "Content-Encoding", "value": "br" }
+      ]
+    },
+    {
+      "source": "/games/BugEaters/Build/(.*)\\.js\\.br",
+      "headers": [
+        { "key": "Content-Type", "value": "application/javascript" },
+        { "key": "Content-Encoding", "value": "br" }
+      ]
+    },
+    {
+      "source": "/games/BugEaters/Build/(.*)\\.data\\.br",
+      "headers": [
+        { "key": "Content-Type", "value": "application/octet-stream" },
+        { "key": "Content-Encoding", "value": "br" }
+      ]
+    }
+  ]
+}

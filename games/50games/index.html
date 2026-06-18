@@ -1,0 +1,691 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>2 Player Challenge: Tournament Edition</title>
+
+<style>
+    :root {
+        --bg-color: #f4f0e6;
+        --panel-bg: #ffffff;
+        --text-main: #111111;
+        --accent-color: #FFE600;
+        --p1-color: #FF2A54;
+        --p2-color: #00E59B;
+        --p-cpu-color: #8C52FF;
+        /* Fixed: Use reliable system fonts (Impact + Arial Black) that look almost identical to Russo One */
+        --font-header: 'Impact', 'Arial Black', sans-serif;
+    }
+
+    body {
+        margin: 0; padding: 0;
+        background-color: var(--bg-color); 
+        background-image: radial-gradient(#111 1px, transparent 1px);
+        background-size: 24px 24px;
+        font-family: 'Space Grotesk', sans-serif;
+        display: flex; align-items: center; justify-content: center;
+        min-height: 100vh; overflow: hidden;
+    }
+
+    #scale-wrapper {
+        position: relative;
+        transform-origin: center;
+    }
+
+    #game-container { 
+        position: relative; 
+        width: 800px;
+        height: 600px;
+        background: #1a1921;
+        border: 14px solid #111; 
+        border-radius: 20px;
+        box-shadow: 0 25px 50px rgba(0,0,0,0.5);
+        overflow: hidden;
+    }
+    
+    canvas { display: block; background-color: transparent; image-rendering: pixelated; }
+
+    .overlay {
+        position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+        display: flex; align-items: center; justify-content: center;
+        background: rgba(0,0,0,0.3);
+        z-index: 10;
+    }
+
+    .modal-box {
+        background: var(--panel-bg);
+        border: 8px solid #111;
+        border-radius: 16px;
+        box-shadow: 12px 12px 0 #111;
+        padding: 78px 40px 35px 40px;
+        width: 88%;
+        max-width: 720px;
+        text-align: center;
+    }
+
+    .hidden { display: none !important; }
+
+    h1 { 
+        font-family: var(--font-header);
+        font-size: 2.35rem; 
+        margin: 0 0 8px 0; 
+        color: var(--text-main); 
+        text-transform: uppercase; 
+        text-shadow: 3px 3px 0px var(--accent-color);
+        line-height: 1.0;
+    }
+
+    .mode-toggle { display: flex; gap: 16px; width: 100%; margin-bottom: 20px; }
+    .mode-toggle button { flex: 1; padding: 16px; font-size: 1.3rem; font-weight: 700; border: 6px solid #111; border-radius: 12px; }
+    #btn-1p { background: white; }
+    #btn-2p.active { background: #00E59B; color: #111; }
+
+    .btn-tourney { 
+        background: var(--accent-color); 
+        font-size: 1.55rem; 
+        padding: 20px; 
+        width: 100%; 
+        font-family: var(--font-header);
+        border: 7px solid #111;
+        border-radius: 14px;
+        box-shadow: 6px 6px 0 #111;
+        margin-bottom: 22px;
+    }
+
+    #btn-sound-toggle {
+        background: #e0f7fa;
+        border: 5px solid #111;
+        padding: 12px 32px;
+        font-weight: 700;
+        border-radius: 9999px;
+        margin-bottom: 24px;
+    }
+
+    .btn-grid { 
+        display: grid; 
+        grid-template-columns: repeat(3, 1fr); 
+        gap: 12px; 
+        width: 100%; 
+        max-height: 310px; 
+        overflow-y: auto;
+    }
+
+    button {
+        background: #fff; 
+        border: 6px solid #111; 
+        padding: 14px 10px;
+        font-size: 1.05rem; 
+        font-weight: 700; 
+        cursor: pointer;
+        border-radius: 10px; 
+        box-shadow: 4px 4px 0 #111;
+        text-transform: uppercase;
+        transition: all 0.1s;
+    }
+
+    button:hover { 
+        transform: translate(-3px, -3px); 
+        box-shadow: 8px 8px 0 #111;
+    }
+
+    /* HUD (unchanged) */
+    #hud { position: absolute; top: 15px; left: 0; width: 100%; display: flex; flex-direction: column; align-items: center; pointer-events: none; z-index: 5; }
+    .hud-row { display: flex; justify-content: space-between; width: 100%; padding: 0 30px; box-sizing: border-box; font-family: 'Bungee', cursive; font-size: 1.8rem; text-shadow: 3px 3px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000; }
+    #game-title-display { color: #fff; }
+    .score-p1 { color: var(--p1-color); }
+    .score-p2 { color: var(--p2-color); }
+    #tournament-hud { font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 1.1rem; color: #000; background: var(--accent-color); padding: 6px 20px; border: 3px solid #000; box-shadow: 3px 3px 0px #000; border-radius: 20px; margin-top: 10px; text-transform: uppercase; }
+    #controls-hint { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); background: #fff; border: 3px solid #000; padding: 8px 20px; box-shadow: 4px 4px 0px #000; border-radius: 25px; font-family: 'Space Grotesk', sans-serif; font-weight: 700; color: #000; pointer-events: none; }
+</style>
+</head>
+<body>
+
+<div id="scale-wrapper">
+<div id="game-container">
+    <canvas id="gameCanvas" width="800" height="600"></canvas>
+    
+    <!-- HUD -->
+    <div id="hud" class="hidden">
+        <div class="hud-row">
+            <span id="score-p1-display" class="score-p1">P1: 0</span>
+            <span id="game-title-display">GAME NAME</span>
+            <span id="score-p2-display" class="score-p2">P2: 0</span>
+        </div>
+        <div id="tournament-hud" class="hidden">Round 1/7 | Tourney: 0 - 0</div>
+    </div>
+
+    <!-- MAIN MENU -->
+    <div id="menu-screen" class="overlay">
+        <div class="modal-box">
+            <h1>CHALLENGE</h1>
+            
+            <!-- ROW 1: 1P / 2P Toggle -->
+            <div class="mode-toggle">
+                <button id="btn-1p" onclick="GameManager.setMode(true)">1 PLAYER</button>
+                <button id="btn-2p" onclick="GameManager.setMode(false)" class="active">2 PLAYERS</button>
+            </div>
+
+            <!-- ROW 2: Tournament Button -->
+            <button class="btn-tourney" onclick="GameManager.startTournament()">START TOURNAMENT</button>
+
+            <!-- ROW 2.5: Sound Toggle -->
+            <button id="btn-sound-toggle"
+                    onclick="AudioManager.enabled = !AudioManager.enabled; 
+                             AudioManager.resumeIfNeeded();
+                             this.innerText = AudioManager.enabled ? 'SOUND: ON' : 'SOUND: OFF 🔇'; 
+                             localStorage.setItem('soundEnabled', AudioManager.enabled);">
+                SOUND: ON 🔊
+            </button>
+
+            <!-- ROW 3: Game List (3-column grid) -->
+            <div class="btn-grid" id="menu-buttons">
+                <!-- Game buttons injected here by JS -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Game Over screen -->
+    <div id="game-over-screen" class="overlay hidden">
+        <div class="modal-box">
+            <h1 id="winner-text">PLAYER 1 WINS!</h1>
+            <h2 id="final-score">Final Score: 0 - 0</h2>
+            <div class="mode-toggle">
+                <button onclick="GameManager.restartGame()">Play Again</button>
+                <button onclick="GameManager.showMenu()">Main Menu</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tournament screen -->
+    <div id="tournament-screen" class="overlay hidden">
+        <div class="modal-box">
+            <h1 id="tourney-title">Round Over!</h1>
+            <h2 id="tourney-subtitle">Player 1 won that game.</h2>
+            <div style="display:flex;justify-content:center;gap:20px;font-size:1.4rem;margin:15px 0;">
+                <span class="score-p1">P1: <span id="t-score-p1">0</span></span>
+                <span style="color:#000;">-</span>
+                <span class="score-p2"><span id="t-p2-label">P2</span>: <span id="t-score-p2">0</span></span>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;max-height:none;">
+                <button id="btn-next-round" onclick="GameManager.nextTournamentRound()" style="background:var(--accent-color);">Next Game</button>
+                <button onclick="GameManager.showMenu()">Quit Tournament</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Pause screen -->
+    <div id="pause-screen" class="overlay hidden">
+        <div class="modal-box">
+            <h1>PAUSED</h1>
+            <h2>Press ESC to resume</h2>
+            <button onclick="GameManager.showMenu()">Quit to Menu</button>
+        </div>
+    </div>
+
+    <div id="controls-hint" class="hidden">P1: WASD | P2: Arrows</div>
+</div>
+</div>
+
+<script>
+/**
+ * CENTRAL THEME CONFIGURATION
+ */
+const Theme = {
+    bg: '#1a1921',
+    fg: '#ffffff',
+    p1: '#FF2A54',
+    p2: '#00E59B',
+    accent: '#FFE600',
+};
+
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+
+// INPUT HANDLER
+class InputHandler {
+    constructor() {
+        this.keys = {};
+        window.addEventListener('keydown', e => {
+            if(["Space","ArrowUp","ArrowDown","ArrowLeft","ArrowRight"].includes(e.code)) e.preventDefault();
+            this.keys[e.code] = true;
+            if (e.code === 'Escape') GameManager.togglePause();
+        });
+        window.addEventListener('keyup', e => { this.keys[e.code] = false; });
+    }
+    isDown(code) { return !!this.keys[code]; }
+}
+const Input = new InputHandler();
+
+// BASE GAME CLASS
+class GameBase {
+    constructor(name, description) {
+        this.name = name; this.description = description;
+        this.scoreP1 = 0; this.scoreP2 = 0;
+        this.width = 800; this.height = 600;
+    }
+    init(w, h) { this.width = w; this.height = h; }
+    update(dt) {}
+    render(ctx) {}
+}
+
+// CORE ENGINE
+class GameEngine {
+    constructor() {
+        this.gamesList = [];
+        this.currentGame = null;
+        this.state = 'MENU';
+        this.lastTime = 0;
+        this.isSinglePlayer = false;
+        this.isTournament = false;
+        this.tGames = [];
+        this.tRound = 0;
+        this.tScoreP1 = 0;
+        this.tScoreP2 = 0;
+        this._started = false;
+    }
+
+    registerGame(gameInstance) { this.gamesList.push(gameInstance); }
+
+    start() {
+        if (this._started) return;
+        this._started = true;
+        this.buildGameList();
+        this.showMenu();
+        resizeGame();
+        requestAnimationFrame(t => this.loop(t));
+    }
+
+    setMode(isSingle) {
+        this.isSinglePlayer = isSingle;
+        if (isSingle) {
+            document.getElementById('btn-1p').classList.add('active');
+            document.getElementById('btn-2p').classList.remove('active');
+        } else {
+            document.getElementById('btn-2p').classList.add('active');
+            document.getElementById('btn-1p').classList.remove('active');
+        }
+    }
+
+    buildGameList() {
+        const btns = document.getElementById('menu-buttons');
+        btns.innerHTML = '';
+        this.gamesList.forEach((g, index) => {
+            const btn = document.createElement('button');
+            btn.innerText = g.name;
+            btn.onclick = () => {
+                this.isTournament = false;
+                this.startGame(index);
+            };
+            btns.appendChild(btn);
+        });
+    }
+
+    showMenu() {
+        this.state = 'MENU';
+        document.querySelectorAll('.overlay').forEach(el => el.classList.add('hidden'));
+        document.getElementById('menu-screen').classList.remove('hidden');
+        document.getElementById('hud').classList.add('hidden');
+        document.getElementById('controls-hint').classList.add('hidden');
+    }
+
+    startTournament() {
+        this.isTournament = true;
+        this.tScoreP1 = 0; this.tScoreP2 = 0; this.tRound = 0;
+        this.tGames = [];
+        let available = [...Array(this.gamesList.length).keys()];
+        for(let i = 0; i < 7; i++) {
+            if(available.length === 0) available = [...Array(this.gamesList.length).keys()];
+            let randIdx = Math.floor(Math.random() * available.length);
+            this.tGames.push(available[randIdx]);
+            available.splice(randIdx, 1);
+        }
+        this.nextTournamentRound();
+    }
+
+    nextTournamentRound() {
+        if (this.tRound >= 7) { this.showMenu(); return; }
+        let nextGameIdx = this.tGames[this.tRound];
+        this.startGame(nextGameIdx);
+    }
+
+    startGame(index) {
+        this.currentGame = this.gamesList[index];
+        this.state = 'PLAYING';
+        AudioManager.tick();
+
+        document.querySelectorAll('.overlay').forEach(el => el.classList.add('hidden'));
+        document.getElementById('hud').classList.remove('hidden');
+        document.getElementById('controls-hint').classList.remove('hidden');
+        
+        document.getElementById('game-title-display').innerText = this.currentGame.name;
+        
+        let tHud = document.getElementById('tournament-hud');
+        if (this.isTournament) {
+            tHud.classList.remove('hidden');
+            tHud.innerText = `Round ${this.tRound + 1}/7 | Tourney: P1 ${this.tScoreP1} - ${this.tScoreP2} ${this.isSinglePlayer?'CPU':'P2'}`;
+        } else {
+            tHud.classList.add('hidden');
+        }
+
+        this.updateHUD();
+        this.currentGame.init(canvas.width, canvas.height);
+    }
+
+    togglePause() {
+        if (this.state === 'PLAYING') {
+            this.state = 'PAUSED';
+            document.getElementById('pause-screen').classList.remove('hidden');
+        } else if (this.state === 'PAUSED') {
+            this.state = 'PLAYING';
+            document.getElementById('pause-screen').classList.add('hidden');
+        }
+    }
+
+    gameOver(winner) {
+        if (winner === 1 || winner === 2) {
+            AudioManager.correct();
+        } else {
+            AudioManager.wrong();
+        }
+
+        document.getElementById('hud').classList.add('hidden');
+        document.getElementById('controls-hint').classList.add('hidden');
+        
+        if (this.isTournament) {
+            this.state = 'TOURNAMENT_UI';
+            let winText = "Draw! No points awarded.";
+            if (winner === 1) { this.tScoreP1++; winText = "Player 1 won the round!"; }
+            else if (winner === 2) { 
+                this.tScoreP2++; 
+                winText = this.isSinglePlayer ? "CPU won the round!" : "Player 2 won the round!"; 
+            }
+            this.tRound++;
+            
+            const tScreen = document.getElementById('tournament-screen');
+            tScreen.classList.remove('hidden');
+            document.getElementById('t-score-p1').innerText = this.tScoreP1;
+            document.getElementById('t-score-p2').innerText = this.tScoreP2;
+            
+            let p2LabelElem = document.getElementById('t-p2-label');
+            p2LabelElem.innerText = this.isSinglePlayer ? "CPU" : "P2";
+            if(this.isSinglePlayer) {
+                p2LabelElem.parentElement.style.color = "var(--p-cpu-color)";
+            } else {
+                p2LabelElem.parentElement.style.color = "var(--p2-color)";
+            }
+
+            document.getElementById('tourney-subtitle').innerText = winText;
+
+            let nxtBtn = document.getElementById('btn-next-round');
+            if (this.tRound >= 7) {
+                document.getElementById('tourney-title').innerText = "TOURNAMENT COMPLETE";
+                let finalWinner = "IT'S A TIE!";
+                if (this.tScoreP1 > this.tScoreP2) finalWinner = "🏆 PLAYER 1 IS THE CHAMPION! 🏆";
+                else if (this.tScoreP2 > this.tScoreP1) finalWinner = (this.isSinglePlayer ? "🏆 CPU" : "🏆 PLAYER 2") + " IS THE CHAMPION! 🏆";
+                document.getElementById('tourney-subtitle').innerText = finalWinner;
+                nxtBtn.innerText = "Finish Tournament";
+                nxtBtn.onclick = () => this.showMenu();
+            } else {
+                document.getElementById('tourney-title').innerText = `Round ${this.tRound} Over!`;
+                nxtBtn.innerText = "Start Next Game";
+                nxtBtn.onclick = () => this.nextTournamentRound();
+            }
+        } else {
+            this.state = 'OVER';
+            const screen = document.getElementById('game-over-screen');
+            const title = document.getElementById('winner-text');
+            const scoreTxt = document.getElementById('final-score');
+            
+            screen.classList.remove('hidden');
+            if (winner === 1) { 
+                title.innerText = "PLAYER 1 WINS!"; 
+                title.style.color = Theme.p1; 
+                title.style.textShadow = "3px 3px 0px #000";
+            } 
+            else if (winner === 2) { 
+                title.innerText = (this.isSinglePlayer ? "CPU WINS!" : "PLAYER 2 WINS!"); 
+                title.style.color = this.isSinglePlayer ? "var(--p-cpu-color)" : Theme.p2; 
+                title.style.textShadow = "3px 3px 0px #000";
+            } 
+            else { 
+                title.innerText = "DRAW!"; 
+                title.style.color = Theme.accent; 
+                title.style.textShadow = "3px 3px 0px #000";
+            }
+
+            let s1 = this.currentGame.scoreP1 || 0;
+            let s2 = this.currentGame.scoreP2 || 0;
+            scoreTxt.innerText = `Final Score: ${s1} - ${s2}`;
+        }
+    }
+
+    restartGame() {
+        document.getElementById('game-over-screen').classList.add('hidden');
+        this.startGame(this.gamesList.indexOf(this.currentGame));
+    }
+
+    updateHUD() {
+        if (this.currentGame && this.state === 'PLAYING') {
+            document.getElementById('score-p1-display').innerText = `P1: ${this.currentGame.scoreP1}`;
+            let p2Label = this.isSinglePlayer ? "CPU: " : "P2: ";
+            let p2Elem = document.getElementById('score-p2-display');
+            p2Elem.innerText = `${p2Label}${this.currentGame.scoreP2}`;
+            if(this.isSinglePlayer) p2Elem.style.color = "var(--p-cpu-color)";
+            else p2Elem.style.color = "var(--p2-color)";
+        }
+    }
+
+    loop(timestamp) {
+        const dt = (timestamp - this.lastTime) / 1000; 
+        this.lastTime = timestamp;
+
+        if (this.state === 'PLAYING') {
+            ctx.fillStyle = Theme.bg;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            this.currentGame.update(dt);
+            this.currentGame.render(ctx);
+            this.updateHUD();
+        } else if (this.state !== 'PLAYING') {
+            ctx.fillStyle = Theme.bg;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+        }
+        requestAnimationFrame(t => this.loop(t));
+    }
+}
+
+// ====================== GLOBAL AUDIO ======================
+let audioCtx = null;
+
+const AudioManager = {
+    enabled: true,
+    lastSoundTime: 0,
+
+    getContext() {
+        if (!audioCtx) {
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        return audioCtx;
+    },
+
+    resumeIfNeeded() {
+        const ctx = this.getContext();
+        if (ctx.state === 'suspended') ctx.resume();
+    },
+
+    playTone(freq, duration = 80, type = 'sine', volume = 0.22) {
+        if (!this.enabled) return;
+        const ctx = this.getContext();
+        if (ctx.state !== 'running') return;
+
+        const now = Date.now();
+        if (now - this.lastSoundTime < 24) return;
+
+        try {
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = type;
+            osc.frequency.setValueAtTime(freq, ctx.currentTime);
+            gain.gain.setValueAtTime(volume, ctx.currentTime);
+            gain.gain.linearRampToValueAtTime(0.001, ctx.currentTime + duration / 1000 + 0.08);
+            osc.connect(gain).connect(ctx.destination);
+            osc.start();
+            osc.stop(ctx.currentTime + duration / 1000 + 0.15);
+            this.lastSoundTime = now;
+        } catch(e) {}
+    },
+
+    move()    { this.playTone(740, 26, 'sine', 0.16); },
+    select()  { this.playTone(920, 38, 'triangle', 0.19); },
+    correct() {
+        this.playTone(640, 55, 'sine', 0.23);
+        setTimeout(() => this.playTone(1050, 80, 'sine', 0.23), 45);
+        setTimeout(() => this.playTone(1320, 95, 'sine', 0.23), 110);
+    },
+    wrong() {
+        this.playTone(360, 140, 'sine', 0.24);
+        setTimeout(() => this.playTone(280, 190, 'sine', 0.19), 75);
+    },
+    tick() {
+        this.playTone(680, 22, 'sine', 0.17);
+    }
+};
+
+document.addEventListener('click', () => AudioManager.resumeIfNeeded(), { once: true });
+document.addEventListener('keydown', () => AudioManager.resumeIfNeeded(), { once: true });
+document.addEventListener('touchstart', () => AudioManager.resumeIfNeeded(), { once: true });
+
+// Instantiate Engine
+window.GameManager = new GameEngine();
+</script>
+
+<!-- ========================================================
+     LOAD ALL GAME FILES (exactly your original list)
+     ======================================================== -->
+<script src="games/pong.js"></script>
+<script src="games/airhockey.js"></script>
+<script src="games/snake.js"></script>
+<script src="games/sumo.js"></script>
+<script src="games/tanks.js"></script>
+<script src="games/spaceduel.js"></script>
+<script src="games/tugofwar.js"></script>
+<script src="games/coinrush.js"></script>
+<script src="games/flappy.js"></script>
+<script src="games/dodge.js"></script>
+<script src="games/skyjoust.js"></script>
+<script src="games/lighttrails.js"></script>
+<script src="games/slimevolley.js"></script>
+<script src="games/relicchase.js"></script>
+<script src="games/gravitywell.js"></script>
+<script src="games/ricochetduel.js"></script>
+<script src="games/oddballkeepaway.js"></script>
+<script src="games/platformgunner.js"></script>
+<script src="games/bombtag.js"></script>
+<script src="games/wreckingball.js"></script>
+<script src="games/turfwar.js"></script>
+<script src="games/dashattack.js"></script>
+<script src="games/artilleryarc.js"></script>
+<script src="games/boomerangbattle.js"></script>
+<script src="games/capturetheflag.js"></script>
+<script src="games/archery.js"></script>
+<script src="games/darts.js"></script>
+<script src="games/football.js"></script>
+<script src="games/golf.js"></script>
+<script src="games/seabattle.js"></script>
+<script src="games/tictactoe.js"></script>
+<script src="games/memory.js"></script>
+<script src="games/whackamole.js"></script>
+<script src="games/fruitduel.js"></script>
+<script src="games/mathquiz.js"></script>
+<script src="games/chickenjump.js"></script>
+<script src="games/pool.js"></script>
+<script src="games/biggerfish.js"></script>
+<script src="games/checkers.js"></script>
+<script src="games/trafficrace.js"></script>
+<script src="games/towerclimb.js"></script>
+<script src="games/spikedash.js"></script>
+<script src="games/cratestacker.js"></script>
+<script src="games/bombermaze.js"></script>
+<script src="games/shurikendeflect.js"></script>
+<script src="games/snowballforts.js"></script>
+<script src="games/bullethellduel.js"></script>
+<script src="games/wildwestdraw.js"></script>
+<script src="games/mazerunner.js"></script>
+<script src="games/pactag.js"></script>
+<script src="games/hovercraft-drift.js"></script>
+<script src="games/parachute-drop.js"></script>
+<script src="games/lumberjack-chop.js"></script>
+<script src="games/minefield-sprint.js"></script>
+<script src="games/connect-four.js"></script>
+<script src="games/simon-says.js"></script>
+<script src="games/tetris-battle.js"></script>
+<script src="games/mirror-laser.js"></script>
+<script src="games/sokoban-crush.js"></script>
+<script src="games/bumper-cars.js"></script>
+<script src="games/brick-breaker-duel.js"></script>
+<script src="games/juggling-act.js"></script>
+<script src="games/centipede-defense.js"></script>
+<script src="games/pinball-versus.js"></script>
+<script src="games/gold-miner.js"></script>
+<script src="games/pizza-catch.js"></script>
+<script src="games/ufo-abduction.js"></script>
+<script src="games/sheep-herder.js"></script>
+<script src="games/hoops.js"></script>
+<script src="games/bowling.js"></script>
+<script src="games/volley-bomb.js"></script>
+<script src="games/minigolf-strokes.js"></script>
+<script src="games/minigolf-race.js"></script>
+<script src="games/musical-chairs.js"></script>
+<script src="games/balloon-pump.js"></script>
+<script src="games/burglar-sneak.js"></script>
+<script src="games/paint-roller.js"></script>
+<script src="games/asteroids-defense.js"></script>
+
+<!-- Menu button hover/click sounds -->
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const buttons = document.querySelectorAll('.modal-box button, .btn-grid button');
+    buttons.forEach(btn => {
+        let timeout;
+        btn.addEventListener('mouseenter', () => {
+            clearTimeout(timeout);
+            timeout = setTimeout(() => { if (AudioManager && AudioManager.tick) AudioManager.tick(); }, 40);
+        });
+        btn.addEventListener('click', () => {
+            if (AudioManager && AudioManager.select) AudioManager.select();
+        });
+    });
+});
+</script>
+
+<!-- RESPONSIVE SCALING -->
+<script>
+function resizeGame() {
+    const wrapper = document.getElementById('scale-wrapper');
+    const maxW = window.innerWidth * 0.96;
+    const maxH = window.innerHeight * 0.96;
+    const scaleX = maxW / 800;
+    const scaleY = maxH / 600;
+    const scale = Math.min(scaleX, scaleY, 1.8);
+    wrapper.style.transform = `scale(${scale})`;
+    wrapper.style.width = '800px';
+    wrapper.style.height = '600px';
+}
+window.addEventListener('resize', resizeGame);
+</script>
+
+<!-- Start the app + restore sound setting -->
+<script>
+window.addEventListener('DOMContentLoaded', () => {
+    const saved = localStorage.getItem('soundEnabled');
+    if (saved !== null) {
+        AudioManager.enabled = (saved === 'true');
+        const btn = document.getElementById('btn-sound-toggle');
+        if (btn) btn.innerText = AudioManager.enabled ? 'SOUND: ON 🔊' : 'SOUND: OFF 🔇';
+    }
+    GameManager.start();
+});
+</script>
+
+</body>
+</html>

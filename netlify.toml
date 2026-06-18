@@ -1,0 +1,36 @@
+[build]
+  publish = "."
+
+# Unity WebGL (Brotli) — explicit paths for reliable matching on Netlify
+
+[[headers]]
+  for = "/games/BugEaters/Build/TheBugEaters.wasm.br"
+  [headers.values]
+    Content-Type = "application/wasm"
+    Content-Encoding = "br"
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "/games/BugEaters/Build/TheBugEaters.framework.js.br"
+  [headers.values]
+    Content-Type = "application/javascript"
+    Content-Encoding = "br"
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "/games/BugEaters/Build/TheBugEaters.data.br"
+  [headers.values]
+    Content-Type = "application/octet-stream"
+    Content-Encoding = "br"
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "/games/BugEaters/Build/TheBugEaters.loader.js"
+  [headers.values]
+    Content-Type = "application/javascript"
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "/games/BugEaters/Build/*"
+  [headers.values]
+    Access-Control-Allow-Origin = "*"

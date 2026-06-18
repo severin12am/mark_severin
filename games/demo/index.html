@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Demo Game</title>
+  <style>
+    * { margin: 0; box-sizing: border-box; }
+    body {
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      background: #1a1c2c;
+      color: #fff;
+      font-family: system-ui, sans-serif;
+      touch-action: manipulation;
+    }
+    canvas {
+      border-radius: 16px;
+      box-shadow: 0 0 40px rgba(255, 159, 89, 0.3);
+      cursor: pointer;
+    }
+    p { margin-top: 16px; color: #8e96b1; font-size: 14px; }
+  </style>
+</head>
+<body>
+  <div style="text-align:center">
+    <canvas id="c" width="320" height="320"></canvas>
+    <p>Click the orb — replace this folder with your real game</p>
+  </div>
+  <script>
+    const canvas = document.getElementById('c');
+    const ctx = canvas.getContext('2d');
+    let x = 160, y = 160, vx = 3, vy = 2.2, r = 28;
+
+    canvas.addEventListener('click', () => {
+      vx = (Math.random() - 0.5) * 8;
+      vy = (Math.random() - 0.5) * 8;
+    });
+
+    function loop() {
+      x += vx; y += vy;
+      if (x < r || x > 320 - r) vx *= -1;
+      if (y < r || y > 320 - r) vy *= -1;
+
+      ctx.fillStyle = '#25283d';
+      ctx.fillRect(0, 0, 320, 320);
+
+      const g = ctx.createRadialGradient(x, y, 0, x, y, r * 2);
+      g.addColorStop(0, '#ffb07a');
+      g.addColorStop(1, '#ff9f59');
+      ctx.beginPath();
+      ctx.arc(x, y, r, 0, Math.PI * 2);
+      ctx.fillStyle = g;
+      ctx.fill();
+      requestAnimationFrame(loop);
+    }
+    loop();
+  </script>
+</body>
+</html>

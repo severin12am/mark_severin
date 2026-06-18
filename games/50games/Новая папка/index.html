@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>2 Player Challenge</title>
+<style>
+    /* =========================================
+       CENTRAL THEME CONFIGURATION (CSS)
+       Change these to update the UI globally
+       ========================================= */
+    :root {
+        --bg-color: #1a1a1a;
+        --text-color: #f0f0f0;
+        --accent-color: #00d2ff;
+        --p1-color: #ff4757;
+        --p2-color: #2ed573;
+        --font-main: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    body {
+        margin: 0; padding: 0;
+        background-color: var(--bg-color);
+        color: var(--text-color);
+        font-family: var(--font-main);
+        display: flex; flex-direction: column;
+        align-items: center; justify-content: center;
+        height: 100vh; overflow: hidden;
+    }
+
+    #game-container {
+        position: relative;
+        box-shadow: 0 0 20px rgba(0,0,0,0.5);
+        border: 4px solid #333;
+    }
+
+    canvas { display: block; background-color: #000; }
+
+    .overlay {
+        position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+        display: flex; flex-direction: column; align-items: center; justify-content: center;
+        background: rgba(0, 0, 0, 0.85); z-index: 10;
+    }
+
+    .hidden { display: none !important; }
+
+    h1 { font-size: 2.5rem; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 2px; color: var(--accent-color); }
+    p { max-width: 600px; text-align: center; margin-bottom: 30px; color: #ccc; }
+
+    .btn-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; margin-bottom: 20px; }
+    
+    button {
+        background: var(--accent-color); border: none; padding: 15px 30px;
+        font-size: 1.1rem; color: #000; font-weight: bold; cursor: pointer;
+        border-radius: 4px; transition: transform 0.1s, filter 0.2s;
+    }
+    button:hover { filter: brightness(1.1); transform: translateY(-2px); }
+    .btn-secondary { background: #555; color: white; }
+
+    #hud {
+        position: absolute; top: 10px; left: 0; width: 100%;
+        display: flex; justify-content: space-between; padding: 0 20px;
+        box-sizing: border-box; font-size: 1.5rem; font-weight: bold; pointer-events: none;
+    }
+
+    .score-p1 { color: var(--p1-color); }
+    .score-p2 { color: var(--p2-color); }
+
+    #controls-hint {
+        position: absolute; bottom: 10px; left: 0; width: 100%;
+        text-align: center; font-size: 0.9rem; opacity: 0.7; pointer-events: none;
+    }
+</style>
+</head>
+<body>
+
+<div id="game-container">
+    <canvas id="gameCanvas" width="800" height="600"></canvas>
+    
+    <div id="hud" class="hidden">
+        <span id="score-p1-display" class="score-p1">P1: 0</span>
+        <span id="game-title-display">GAME NAME</span>
+        <span id="score-p2-display" class="score-p2">P2: 0</span>
+    </div>
+
+    <div id="menu-screen" class="overlay">
+        <h1>2 Player Challenge</h1>
+        <p>Select a game to start. Head-to-head local multiplayer.</p>
+        <div class="btn-grid" id="game-list"></div>
+    </div>
+
+    <div id="game-over-screen" class="overlay hidden">
+        <h1 id="winner-text">PLAYER 1 WINS!</h1>
+        <p id="final-score"></p>
+        <div style="display:flex; gap:20px;">
+            <button onclick="GameManager.restartGame()">Play Again</button>
+            <button class="btn-secondary" onclick="GameManager.showMenu()">Main Menu</button>
+        </div>
+    </div>
+
+    <div id="pause-screen" class="overlay hidden">
+        <h1>PAUSED</h1>
+        <p>Press ESC to resume.</p>
+        <button onclick="GameManager.showMenu()">Quit to Menu</button>
+    </div>
+
+    <div id="controls-hint" class="hidden">P1: WASD | P2: Arrows</div>
+</div>
+
+<script>
+/**
+ * =========================================
+ * CENTRAL THEME CONFIGURATION (CANVAS JS)
+ * Games will use these colors to draw objects
+ * =========================================
+ */
+const Theme = {
+    bg: '#000000',
+    fg: '#ffffff',
+    p1: '#ff4757', // Red
+    p2: '#2ed573', // Green
+    accent: '#00d2ff', // Cyan
+};
+
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+
+// -- INPUT HANDLER --
+class InputHandler {
+    constructor() {
+        this.keys = {};
+        window.addEventListener('keydown', e => {
+            if(["Space","ArrowUp","ArrowDown","ArrowLeft","ArrowRight"].includes(e.code)) e.preventDefault();
+            this.keys[e.code] = true;
+            if (e.code === 'Escape') GameManager.togglePause();
+        });
+        window.addEventListener('keyup', e => { this.keys[e.code] = false; });
+    }
+    isDown(code) { return !!this.keys[code]; }
+}
+const Input = new InputHandler();
+
+// -- BASE GAME CLASS (All games must extend this) --
+class GameBase {
+    constructor(name, description) {
+        this.name = name;
+        this.description = description;
+        this.scoreP1 = 0;
+        this.scoreP2 = 0;
+        this.width = 800;
+        this.height = 600;
+    }
+    init(w, h) { this.width = w; this.height = h; }
+    update(dt) {}
+    render(ctx) {}
+}
+
+// -- CORE ENGINE --
+class GameEngine {
+    constructor() {
+        this.currentGame = null;
+        this.state = 'MENU'; // MENU, PLAYING, PAUSED, OVER
+        this.lastTime = 0;
+        this.gamesList = [];
+    }
+
+    // Individual game files will call this to add themselves to the menu
+    registerGame(gameInstance) {
+        this.gamesList.push(gameInstance);
+    }
+
+    start() {
+        this.renderMenu();
+        requestAnimationFrame(t => this.loop(t));
+    }
+
+    renderMenu() {
+        const list = document.getElementById('game-list');
+        list.innerHTML = '';
+        this.gamesList.forEach((g, index) => {
+            const btn = document.createElement('button');
+            btn.innerText = g.name;
+            btn.onclick = () => this.startGame(index);
+            list.appendChild(btn);
+        });
+    }
+
+    startGame(index) {
+        this.currentGame = this.gamesList[index];
+        this.state = 'PLAYING';
+        
+        document.getElementById('menu-screen').classList.add('hidden');
+        document.getElementById('game-over-screen').classList.add('hidden');
+        document.getElementById('hud').classList.remove('hidden');
+        document.getElementById('controls-hint').classList.remove('hidden');
+        document.getElementById('game-title-display').innerText = this.currentGame.name;
+        
+        this.currentGame.init(canvas.width, canvas.height);
+    }
+
+    showMenu() {
+        this.state = 'MENU';
+        document.querySelectorAll('.overlay').forEach(el => el.classList.add('hidden'));
+        document.getElementById('menu-screen').classList.remove('hidden');
+        document.getElementById('hud').classList.add('hidden');
+        document.getElementById('controls-hint').classList.add('hidden');
+    }
+
+    togglePause() {
+        if (this.state === 'PLAYING') {
+            this.state = 'PAUSED';
+            document.getElementById('pause-screen').classList.remove('hidden');
+        } else if (this.state === 'PAUSED') {
+            this.state = 'PLAYING';
+            document.getElementById('pause-screen').classList.add('hidden');
+        }
+    }
+
+    gameOver(winner) {
+        this.state = 'OVER';
+        const screen = document.getElementById('game-over-screen');
+        const title = document.getElementById('winner-text');
+        const scoreTxt = document.getElementById('final-score');
+        
+        screen.classList.remove('hidden');
+        if (winner === 1) { title.innerText = "PLAYER 1 WINS!"; title.style.color = Theme.p1; } 
+        else if (winner === 2) { title.innerText = "PLAYER 2 WINS!"; title.style.color = Theme.p2; } 
+        else { title.innerText = "DRAW!"; title.style.color = Theme.accent; }
+
+        let s1 = this.currentGame.scoreP1 || 0;
+        let s2 = this.currentGame.scoreP2 || 0;
+        scoreTxt.innerText = `Score: P1 ${s1} - P2 ${s2}`;
+    }
+
+    restartGame() {
+        document.getElementById('game-over-screen').classList.add('hidden');
+        this.state = 'PLAYING';
+        this.currentGame.init(canvas.width, canvas.height);
+    }
+
+    updateHUD() {
+        if (this.currentGame) {
+            document.getElementById('score-p1-display').innerText = `P1: ${this.currentGame.scoreP1}`;
+            document.getElementById('score-p2-display').innerText = `P2: ${this.currentGame.scoreP2}`;
+        }
+    }
+
+    loop(timestamp) {
+        const dt = (timestamp - this.lastTime) / 1000; 
+        this.lastTime = timestamp;
+
+        if (this.state === 'PLAYING') {
+            ctx.fillStyle = Theme.bg;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            this.currentGame.update(dt);
+            this.currentGame.render(ctx);
+            this.updateHUD();
+        } else if (this.state === 'MENU' || this.state === 'OVER' || this.state === 'PAUSED') {
+             ctx.fillStyle = Theme.bg;
+             ctx.fillRect(0, 0, canvas.width, canvas.height);
+        }
+
+        requestAnimationFrame(t => this.loop(t));
+    }
+}
+
+// Instantiate Engine (Globally accessible to game files)
+window.GameManager = new GameEngine();
+</script>
+
+<!-- ========================================================
+     LOAD YOUR INDIVIDUAL GAME FILES HERE
+     ======================================================== -->
+<script src="games/pong.js"></script>
+<script src="games/airhockey.js"></script>
+<script src="games/snake.js"></script>
+<script src="games/sumo.js"></script>
+<script src="games/tanks.js"></script>
+<script src="games/spaceduel.js"></script>
+<script src="games/tugofwar.js"></script>
+<script src="games/coinrush.js"></script>
+<script src="games/flappy.js"></script>
+<script src="games/dodge.js"></script>
+<!-- <script src="games/airhockey.js"></script> -->
+<!-- <script src="games/snake.js"></script> -->
+
+<script>
+    // Boot up the engine after all game scripts have loaded
+    window.onload = () => {
+        GameManager.start();
+    };
+</script>
+</body>
+</html>

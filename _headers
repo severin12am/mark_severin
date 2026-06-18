@@ -1,0 +1,18 @@
+/games/BugEaters/Build/TheBugEaters.wasm.br
+  Content-Type: application/wasm
+  Content-Encoding: br
+  Cache-Control: public, max-age=31536000, immutable
+
+/games/BugEaters/Build/TheBugEaters.framework.js.br
+  Content-Type: application/javascript
+  Content-Encoding: br
+  Cache-Control: public, max-age=31536000, immutable
+
+/games/BugEaters/Build/TheBugEaters.data.br
+  Content-Type: application/octet-stream
+  Content-Encoding: br
+  Cache-Control: public, max-age=31536000, immutable
+
+/games/BugEaters/Build/TheBugEaters.loader.js
+  Content-Type: application/javascript
+  Cache-Control: public, max-age=31536000, immutable
