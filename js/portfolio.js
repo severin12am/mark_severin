@@ -3,6 +3,55 @@ const PREVIEW_NAMES = {
   image: ['preview.gif', 'preview.webp', 'preview.jpg', 'preview.png', 'thumbnail.gif', 'thumbnail.jpg', 'thumbnail.png'],
 };
 
+const DEBUG = {
+  enabled() {
+    return (
+      /(?:\?|&)debug=1(?:&|$)/.test(location.search) ||
+      localStorage.getItem('portfolio-debug') === '1'
+    );
+  },
+  log(...args) {
+    if (this.enabled()) console.log('[portfolio]', ...args);
+  },
+  warn(...args) {
+    console.warn('[portfolio]', ...args);
+  },
+  error(...args) {
+    console.error('[portfolio]', ...args);
+  },
+  since(start) {
+    return `${Math.round(performance.now() - start)}ms`;
+  },
+};
+
+const PROBE_TIMEOUT_MS = 8000;
+const FETCH_TIMEOUT_MS = 10000;
+
+function withTimeout(promise, ms, label) {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      const err = new Error(`Timeout after ${ms}ms: ${label}`);
+      DEBUG.warn('timeout', label, ms);
+      reject(err);
+    }, ms);
+    promise
+      .then((value) => {
+        clearTimeout(timer);
+        resolve(value);
+      })
+      .catch((err) => {
+        clearTimeout(timer);
+        reject(err);
+      });
+  });
+}
+
+function fetchWithTimeout(url, options = {}, ms = FETCH_TIMEOUT_MS) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), ms);
+  return fetch(url, { ...options, signal: controller.signal }).finally(() => clearTimeout(timer));
+}
+
 const UI = {
   en: {
     games: 'Games',
@@ -44,17 +93,31 @@ let catalog = { games: [], apps: [], site: {} };
 let siteLang = 'en';
 
 async function init() {
+  const t0 = performance.now();
+  DEBUG.log('init:start', { protocol: location.protocol, href: location.href, debug: DEBUG.enabled() });
+
   siteLang = getSiteLang();
+  const catalogT0 = performance.now();
   catalog = normalizeCatalog(await loadCatalog());
+  DEBUG.log('init:catalog', {
+    ms: DEBUG.since(catalogT0),
+    games: catalog.games?.length ?? 0,
+    apps: catalog.apps?.length ?? 0,
+    source: window.GAME_CATALOG?.games?.length ? 'GAME_CATALOG' : 'fetch/fallback',
+  });
 
   if (!catalog.games?.length) {
+    DEBUG.warn('init:empty-catalog');
     showLoadError();
     return;
   }
 
   applySiteLang();
+  const renderT0 = performance.now();
   renderGames(catalog.games);
   renderApps(catalog.apps);
+  DEBUG.log('init:rendered', { ms: DEBUG.since(renderT0) });
+
   toggleEmptySection('apps-section', catalog.apps.length);
   const appsTab = document.querySelector('.nav-tab[data-target="apps-section"]');
   if (appsTab) appsTab.style.display = catalog.apps.length ? '' : 'none';
@@ -66,6 +129,8 @@ async function init() {
     const banner = document.getElementById('server-banner');
     if (banner) banner.hidden = false;
   }
+
+  DEBUG.log('init:done', { totalMs: DEBUG.since(t0) });
 }
 
 function getSiteLang() {
@@ -165,18 +230,21 @@ function setupLangSwitcher() {
 async function loadCatalog() {
   const fromWindow = window.GAME_CATALOG;
   if (fromWindow?.games?.length) {
+    DEBUG.log('loadCatalog:window', fromWindow.games.length);
     return fromWindow;
   }
 
   if (location.protocol === 'http:' || location.protocol === 'https:') {
     try {
-      const res = await fetch('data/games.json', { cache: 'no-cache' });
+      DEBUG.log('loadCatalog:fetch games.json');
+      const res = await fetchWithTimeout('data/games.json', { cache: 'no-cache' });
+      DEBUG.log('loadCatalog:fetch status', res.status, res.ok);
       if (res.ok) {
         const data = await res.json();
         if (data.games?.length) return data;
       }
-    } catch {
-      /* network error */
+    } catch (err) {
+      DEBUG.warn('loadCatalog:fetch failed', err?.message || err);
     }
   }
 
@@ -184,6 +252,7 @@ async function loadCatalog() {
     return fromWindow;
   }
 
+  DEBUG.warn('loadCatalog:empty');
   return { site: {}, games: [], apps: [] };
 }
 
@@ -216,30 +285,28 @@ function previewPaths(item, kind) {
   return PREVIEW_NAMES[kind].map((name) => `${base}/${name}`);
 }
 
-const previewQueue = [];
-let previewQueueActive = false;
-
-function enqueuePreviewLoad(container, item) {
-  previewQueue.push({ container, item });
-  drainPreviewQueue();
+function schedulePreviewLoad(container, item) {
+  if (!container || !item) return;
+  loadCardPreview(container, item).catch((err) => {
+    DEBUG.warn('preview:failed', item.id, err?.message || err);
+    showPreviewFallback(container, item);
+  });
 }
 
-async function drainPreviewQueue() {
-  if (previewQueueActive) return;
-  previewQueueActive = true;
-  while (previewQueue.length) {
-    const job = previewQueue.shift();
-    await loadCardPreview(job.container, job.item);
-  }
-  previewQueueActive = false;
+function showPreviewFallback(container, item) {
+  container.innerHTML = '';
+  container.appendChild(makePreviewPlaceholder());
+  const badge = document.createElement('div');
+  badge.className = 'play-badge';
+  badge.innerHTML =
+    '<svg width="18" height="18" viewBox="0 0 24 24" fill="white"><path d="M8 5v14l11-7z"/></svg>';
+  container.appendChild(badge);
 }
 
 function appImagePaths(item) {
-  const paths = [];
-  if (item.image) paths.push(item.image);
+  if (item.image) return [item.image];
   const base = `apps/${item.id}`;
-  paths.push(...PREVIEW_NAMES.image.map((name) => `${base}/${name}`));
-  return paths;
+  return PREVIEW_NAMES.image.map((name) => `${base}/${name}`);
 }
 
 function escapeHtml(text) {
@@ -342,7 +409,7 @@ function renderGames(items) {
   grid.querySelectorAll('.card').forEach((card) => {
     const id = card.dataset.id;
     const item = catalog.games.find((i) => i.id === id);
-    enqueuePreviewLoad(card.querySelector('.card-preview'), item);
+    schedulePreviewLoad(card.querySelector('.card-preview'), item);
     card.addEventListener('mouseenter', () => {
       if (item?.unity) prefetchUnityBuild();
     });
@@ -377,12 +444,18 @@ function renderApps(items) {
 
   list.querySelectorAll('.app-row-thumb').forEach((thumb) => {
     const item = items.find((i) => i.id === thumb.dataset.appId);
-    loadAppThumb(thumb, item);
+    loadAppThumb(thumb, item).catch((err) => {
+      DEBUG.warn('app-thumb:failed', item?.id, err?.message || err);
+    });
   });
 }
 
 async function loadAppThumb(container, item) {
-  const imageSrc = await findFirstExisting(appImagePaths(item));
+  const t0 = performance.now();
+  const paths = appImagePaths(item);
+  DEBUG.log('app-thumb:start', item?.id, paths);
+  const imageSrc = await findFirstExisting(paths, `app:${item?.id}`);
+  DEBUG.log('app-thumb:done', item?.id, { imageSrc, ms: DEBUG.since(t0) });
   if (!imageSrc) return;
 
   container.innerHTML = '';
@@ -394,6 +467,7 @@ async function loadAppThumb(container, item) {
 }
 
 async function loadCardPreview(container, item) {
+  const t0 = performance.now();
   const badge = document.createElement('div');
   badge.className = 'play-badge';
   badge.innerHTML =
@@ -403,6 +477,7 @@ async function loadCardPreview(container, item) {
 
   if (item.preview) {
     const src = `${itemBasePath(item)}/${item.preview}`;
+    DEBUG.log('preview:direct', item.id, src);
     const ext = item.preview.split('.').pop().toLowerCase();
     const isVideo = ext === 'mp4' || ext === 'webm';
     const media = isVideo ? document.createElement('video') : document.createElement('img');
@@ -416,18 +491,20 @@ async function loadCardPreview(container, item) {
       media.playsInline = true;
       media.autoplay = true;
     }
+    media.onload = () => DEBUG.log('preview:loaded', item.id, src, DEBUG.since(t0));
+    media.onloadeddata = () => DEBUG.log('preview:loaded', item.id, src, DEBUG.since(t0));
     media.onerror = () => {
-      container.innerHTML = '';
-      container.appendChild(makePreviewPlaceholder());
-      container.appendChild(badge);
+      DEBUG.warn('preview:error', item.id, src);
+      showPreviewFallback(container, item);
     };
     container.appendChild(media);
     container.appendChild(badge);
     return;
   }
 
-  const imageSrc = await findFirstExisting(previewPaths(item, 'image'));
-  const videoSrc = imageSrc ? null : await findFirstExisting(previewPaths(item, 'video'));
+  DEBUG.log('preview:probe', item.id);
+  const imageSrc = await findFirstExisting(previewPaths(item, 'image'), `preview-image:${item.id}`);
+  const videoSrc = imageSrc ? null : await findFirstExisting(previewPaths(item, 'video'), `preview-video:${item.id}`);
 
   if (videoSrc) {
     const video = document.createElement('video');
@@ -448,6 +525,7 @@ async function loadCardPreview(container, item) {
   }
 
   container.appendChild(badge);
+  DEBUG.log('preview:probed', item.id, { imageSrc, videoSrc, ms: DEBUG.since(t0) });
 }
 
 function makePreviewPlaceholder() {
@@ -457,14 +535,46 @@ function makePreviewPlaceholder() {
   return ph;
 }
 
-async function findFirstExisting(paths) {
+async function findFirstExisting(paths, label = 'probe') {
   for (const path of paths) {
-    if (await probeMedia(path)) return path;
+    DEBUG.log('probe:try', label, path);
+    try {
+      if (await probeMedia(path, label)) {
+        DEBUG.log('probe:hit', label, path);
+        return path;
+      }
+      DEBUG.log('probe:miss', label, path);
+    } catch (err) {
+      DEBUG.warn('probe:error', label, path, err?.message || err);
+    }
   }
   return null;
 }
 
-function probeMedia(path) {
+function waitForImage(img, label) {
+  if (img.complete && img.naturalWidth > 0) return Promise.resolve();
+  return withTimeout(
+    new Promise((resolve, reject) => {
+      img.onload = () => resolve();
+      img.onerror = () => reject(new Error(`Image failed: ${img.src}`));
+    }),
+    PROBE_TIMEOUT_MS,
+    label
+  );
+}
+
+function waitForVideo(video, label) {
+  return withTimeout(
+    new Promise((resolve, reject) => {
+      video.onloadeddata = () => resolve();
+      video.onerror = () => reject(new Error(`Video failed: ${video.src}`));
+    }),
+    PROBE_TIMEOUT_MS,
+    label
+  );
+}
+
+function probeMedia(path, label = 'probe') {
   const ext = path.split('.').pop().toLowerCase();
   const isVideo = ext === 'mp4' || ext === 'webm';
 
@@ -472,31 +582,39 @@ function probeMedia(path) {
     if (location.protocol === 'http:' || location.protocol === 'https:') {
       return Promise.resolve(false);
     }
-    return new Promise((resolve) => {
-      const video = document.createElement('video');
-      video.preload = 'metadata';
-      const done = (ok) => {
-        video.onloadedmetadata = null;
-        video.onerror = null;
-        resolve(ok);
-      };
-      video.onloadedmetadata = () => done(true);
-      video.onerror = () => done(false);
-      video.src = path;
-    });
+    return withTimeout(
+      new Promise((resolve) => {
+        const video = document.createElement('video');
+        video.preload = 'metadata';
+        const done = (ok) => {
+          video.onloadedmetadata = null;
+          video.onerror = null;
+          resolve(ok);
+        };
+        video.onloadedmetadata = () => done(true);
+        video.onerror = () => done(false);
+        video.src = path;
+      }),
+      PROBE_TIMEOUT_MS,
+      `${label}:${path}`
+    );
   }
 
-  return new Promise((resolve) => {
-    const img = new Image();
-    const done = (ok) => {
-      img.onload = null;
-      img.onerror = null;
-      resolve(ok);
-    };
-    img.onload = () => done(true);
-    img.onerror = () => done(false);
-    img.src = path;
-  });
+  return withTimeout(
+    new Promise((resolve) => {
+      const img = new Image();
+      const done = (ok) => {
+        img.onload = null;
+        img.onerror = null;
+        resolve(ok);
+      };
+      img.onload = () => done(true);
+      img.onerror = () => done(false);
+      img.src = path;
+    }),
+    PROBE_TIMEOUT_MS,
+    `${label}:${path}`
+  );
 }
 
 function setupNav() {
@@ -563,7 +681,14 @@ function closePlayer() {
 }
 
 function startPortfolio() {
-  init().catch(() => showLoadError());
+  DEBUG.log('boot', {
+    debug: DEBUG.enabled(),
+    tip: 'Add ?debug=1 to URL for verbose logs',
+  });
+  init().catch((err) => {
+    DEBUG.error('init:failed', err);
+    showLoadError();
+  });
 }
 
 if (document.readyState === 'loading') {
