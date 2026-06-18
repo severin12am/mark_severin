@@ -163,7 +163,7 @@ No build step required.
 Portfolio/
 ├── index.html          ← main page
 ├── css/styles.css      ← Doabli-style theme
-├── js/app.js           ← loads games.json, renders cards
+├── js/portfolio.js     ← loads catalog, renders cards
 ├── data/games.json     ← catalog (edit this to add items)
 ├── games/              ← one folder per game
 │   └── demo/           ← working placeholder

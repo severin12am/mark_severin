@@ -163,15 +163,25 @@ function setupLangSwitcher() {
 }
 
 async function loadCatalog() {
-  if (window.GAME_CATALOG?.games?.length) {
-    return window.GAME_CATALOG;
+  const fromWindow = window.GAME_CATALOG;
+  if (fromWindow?.games?.length) {
+    return fromWindow;
   }
 
-  try {
-    const res = await fetch('data/games.json');
-    if (res.ok) return await res.json();
-  } catch {
-    /* fetch blocked on file:// */
+  if (location.protocol === 'http:' || location.protocol === 'https:') {
+    try {
+      const res = await fetch('data/games.json', { cache: 'no-cache' });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.games?.length) return data;
+      }
+    } catch {
+      /* network error */
+    }
+  }
+
+  if (fromWindow?.games?.length) {
+    return fromWindow;
   }
 
   return { site: {}, games: [], apps: [] };
@@ -490,4 +500,12 @@ function closePlayer() {
   document.body.style.overflow = '';
 }
 
-init();
+function startPortfolio() {
+  init().catch(() => showLoadError());
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', startPortfolio);
+} else {
+  startPortfolio();
+}
