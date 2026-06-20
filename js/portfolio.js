@@ -11,6 +11,7 @@ const UI = {
   en: {
     games: 'Games',
     apps: 'Apps',
+    contact: 'Contact',
     heroEyebrow: 'Indie developer',
     emptyGames: 'No games yet — add entries to data/catalog.js',
     emptyApps: 'No apps yet — add entries to data/catalog.js',
@@ -24,6 +25,7 @@ const UI = {
   ru: {
     games: 'Игры',
     apps: 'Приложения',
+    contact: 'Контакты',
     heroEyebrow: 'Инди-разработчик',
     emptyGames: 'Пока нет игр — добавьте записи в data/catalog.js',
     emptyApps: 'Пока нет приложений — добавьте записи в data/catalog.js',
@@ -57,6 +59,7 @@ function init() {
   if (appsTab) appsTab.style.display = catalog.apps.length ? '' : 'none';
   setupLangSwitcher();
   setupNav();
+  setupContactMenu();
   setupPlayer();
 }
 
@@ -285,8 +288,10 @@ function renderApps(items) {
       const thumb = item.image
         ? `<img src="${escapeHtml(item.image)}" alt="${escapeHtml(localized(item, 'title'))}" loading="lazy" onerror="this.style.display='none'">`
         : '';
+      const thumbClass = item.imageStyle === 'icon' ? 'app-row-thumb app-row-thumb--icon' : 'app-row-thumb';
+      const thumbBg = item.imageBg ? ` style="background:${escapeHtml(item.imageBg)}"` : '';
       const content = `
-      <div class="app-row-thumb">
+      <div class="${thumbClass}"${thumbBg}>
         <div class="app-row-thumb-placeholder" aria-hidden="true">📱</div>
         ${thumb}
       </div>
@@ -305,13 +310,52 @@ function renderApps(items) {
 }
 
 function setupNav() {
-  document.querySelectorAll('.nav-tab').forEach((tab) => {
+  document.querySelectorAll('.nav-tab[data-target]').forEach((tab) => {
     tab.addEventListener('click', () => {
-      document.querySelectorAll('.nav-tab').forEach((btn) => btn.classList.remove('active'));
+      closeContactMenu();
+      document.querySelectorAll('.nav-tab[data-target]').forEach((btn) => btn.classList.remove('active'));
       tab.classList.add('active');
       document.getElementById(tab.dataset.target)?.scrollIntoView({ behavior: 'smooth' });
     });
   });
+}
+
+function setupContactMenu() {
+  const menu = document.getElementById('contact-menu');
+  const toggle = document.getElementById('contact-toggle');
+  const dropdown = document.getElementById('contact-dropdown');
+  if (!menu || !toggle || !dropdown) return;
+
+  toggle.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const open = toggle.getAttribute('aria-expanded') === 'true';
+    if (open) closeContactMenu();
+    else openContactMenu();
+  });
+
+  document.addEventListener('click', (e) => {
+    if (!menu.contains(e.target)) closeContactMenu();
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeContactMenu();
+  });
+}
+
+function openContactMenu() {
+  const menu = document.getElementById('contact-menu');
+  const toggle = document.getElementById('contact-toggle');
+  if (!menu || !toggle) return;
+  menu.classList.add('is-open');
+  toggle.setAttribute('aria-expanded', 'true');
+}
+
+function closeContactMenu() {
+  const menu = document.getElementById('contact-menu');
+  const toggle = document.getElementById('contact-toggle');
+  if (!menu || !toggle) return;
+  menu.classList.remove('is-open');
+  toggle.setAttribute('aria-expanded', 'false');
 }
 
 function setupPlayer() {

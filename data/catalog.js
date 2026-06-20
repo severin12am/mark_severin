@@ -106,7 +106,7 @@ window.GAME_CATALOG = {
       "languages": ["en"],
       "title": { "en": "Bug Eaters" },
       "description": {
-        "en": "You either eat or get eaten - one winner in the entire world"
+        "en": "My most ambitious project yet - everyone in the world participates in one tournament and only one will win and the rest will be eaten."
       },
       "tags": ["arcade", "survival"],
       "featured": false,
@@ -131,7 +131,9 @@ window.GAME_CATALOG = {
     {
       "id": "turispeak",
       "url": "https://turispeak.com",
-      "image": "apps/turispeak/preview.jpg",
+      "image": "apps/turispeak/preview.png",
+      "imageStyle": "icon",
+      "imageBg": "#eef6f8",
       "languages": ["en", "ru"],
       "title": { "en": "Turispeak", "ru": "Turispeak" },
       "description": {
@@ -142,7 +144,7 @@ window.GAME_CATALOG = {
     {
       "id": "whosmarter",
       "url": "https://whosmarter.com",
-      "image": "apps/whosmarter/preview.jpg",
+      "image": "apps/whosmarter/preview.png",
       "languages": ["en", "ru"],
       "title": { "en": "WhoSmarter", "ru": "WhoSmarter" },
       "description": {
@@ -153,7 +155,9 @@ window.GAME_CATALOG = {
     {
       "id": "hearken",
       "url": "https://apps.apple.com/us/app/hearken-custom-lectures/id6762519566",
-      "image": "apps/hearken/preview.jpg",
+      "image": "apps/hearken/preview.png",
+      "imageStyle": "icon",
+      "imageBg": "#1a1512",
       "platform": "ios",
       "languages": ["en", "ru"],
       "title": { "en": "Hearken", "ru": "Hearken" },
