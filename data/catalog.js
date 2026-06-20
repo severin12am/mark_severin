@@ -32,7 +32,7 @@ window.GAME_CATALOG = {
       },
       "tags": ["arcade", "2 player"],
       "featured": true,
-      "preview": "preview.gif"
+      "preview": "preview.mp4"
     },
     {
       "id": "rotatris",
@@ -45,7 +45,7 @@ window.GAME_CATALOG = {
       },
       "tags": ["arcade", "puzzle"],
       "featured": false,
-      "preview": "preview.gif"
+      "preview": "preview.mp4"
     },
     {
       "id": "nucleon",
@@ -58,7 +58,7 @@ window.GAME_CATALOG = {
       },
       "tags": ["puzzle", "physics"],
       "featured": false,
-      "preview": "preview.gif"
+      "preview": "preview.mp4"
     },
     {
       "id": "mozgoput",
@@ -110,7 +110,7 @@ window.GAME_CATALOG = {
       },
       "tags": ["arcade", "survival"],
       "featured": false,
-      "preview": "preview.gif"
+      "preview": "preview.mp4"
     },
     {
       "id": "savebruge",
@@ -124,7 +124,8 @@ window.GAME_CATALOG = {
         "en": "Strategy and city defense — hold Bruge against the invasion."
       },
       "tags": ["strategy"],
-      "featured": false
+      "featured": false,
+      "preview": "preview.png"
     }
   ],
   "apps": [
