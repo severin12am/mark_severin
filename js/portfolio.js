@@ -11,6 +11,7 @@ const UI = {
   en: {
     games: 'Games',
     apps: 'Apps',
+    heroEyebrow: 'Indie developer',
     emptyGames: 'No games yet — add entries to data/catalog.js',
     emptyApps: 'No apps yet — add entries to data/catalog.js',
     loadError: 'Could not load the catalog (data/catalog.js).',
@@ -23,6 +24,7 @@ const UI = {
   ru: {
     games: 'Игры',
     apps: 'Приложения',
+    heroEyebrow: 'Инди-разработчик',
     emptyGames: 'Пока нет игр — добавьте записи в data/catalog.js',
     emptyApps: 'Пока нет приложений — добавьте записи в data/catalog.js',
     loadError: 'Не удалось загрузить каталог (data/catalog.js).',
@@ -107,12 +109,27 @@ function resolveGameLang(item) {
 
 function applySiteLang() {
   document.documentElement.lang = siteLang;
-  document.title = localized(catalog.site, 'title') || 'My Games & Apps';
+  const siteTitle = localized(catalog.site, 'title') || 'My Games & Apps';
+  const siteTagline = localized(catalog.site, 'tagline');
+  document.title = siteTitle;
   const titleEl = document.getElementById('site-title');
   if (titleEl) {
-    titleEl.textContent = localized(catalog.site, 'title') || 'My Games & Apps';
-    titleEl.title = localized(catalog.site, 'tagline');
+    titleEl.textContent = siteTitle;
+    titleEl.title = siteTagline;
   }
+  const heroTitle = document.getElementById('hero-title');
+  if (heroTitle) {
+    const lines = heroTitle.querySelectorAll('.hero-v3-line');
+    if (lines.length >= 2) {
+      const parts = siteTitle.trim().split(/\s+/);
+      lines[0].textContent = parts[0] || siteTitle;
+      lines[1].textContent = parts.slice(1).join(' ') || '';
+    } else {
+      heroTitle.textContent = siteTitle;
+    }
+  }
+  const heroTagline = document.getElementById('hero-tagline');
+  if (heroTagline && siteTagline) heroTagline.textContent = siteTagline;
 
   document.querySelectorAll('[data-i18n]').forEach((el) => {
     const key = el.dataset.i18n;
@@ -227,16 +244,16 @@ function renderGames(items) {
     <article class="card${item.featured ? ' featured' : ''}${item.wip ? ' card-wip' : ''}${item.comingSoon ? ' card-soon' : ''}" data-id="${item.id}">
       <div class="card-preview" data-preview-base="${itemBasePath(item)}">
         ${previewHtml(item)}
-      </div>
-      <div class="card-info">
-        <h3 class="card-title">${escapeHtml(localized(item, 'title'))}</h3>
-        <div class="card-hover-content">
-          <div class="card-hover-inner">
-            <div class="card-meta">
-              <div class="card-langs">${langBadgesHtml(item.languages)}</div>
-              ${item.wip ? `<div class="card-tags"><span class="tag tag-wip">${t('statusWip')}</span></div>` : ''}
+        <div class="card-info">
+          <h3 class="card-title">${escapeHtml(localized(item, 'title'))}</h3>
+          <div class="card-hover-content">
+            <div class="card-hover-inner">
+              <div class="card-meta">
+                <div class="card-langs">${langBadgesHtml(item.languages)}</div>
+                ${item.wip ? `<div class="card-tags"><span class="tag tag-wip">${t('statusWip')}</span></div>` : ''}
+              </div>
+              <p class="card-desc">${escapeHtml(localized(item, 'description'))}</p>
             </div>
-            <p class="card-desc">${escapeHtml(localized(item, 'description'))}</p>
           </div>
         </div>
       </div>

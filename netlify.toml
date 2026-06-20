@@ -1,3 +1,8 @@
+[[redirects]]
+  from = "/index-v3.html"
+  to = "/"
+  status = 301
+
 [build]
   publish = "."
 

@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mark Severin — X Scroll</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&family=Syne:wght@700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/styles-v4.css">
+</head>
+<body>
+  <aside class="x-rail x-rail--left" aria-hidden="true"></aside>
+  <div class="checker-rail checker-rail--down checker-rail--left" aria-hidden="true"></div>
+  <div class="checker-rail checker-rail--up checker-rail--left" aria-hidden="true"></div>
+
+  <div class="v4-main">
+    <header class="site-header">
+      <div class="logo" id="site-title">Mark Severin</div>
+      <div class="header-panel">
+        <nav class="design-switcher" aria-label="Compare designs">
+          <a class="design-switch-link" href="index-classic.html">Classic</a>
+          <a class="design-switch-link" href="index-v2.html">Red</a>
+          <a class="design-switch-link" href="index.html">Living</a>
+          <a class="design-switch-link active" href="index-v4.html">X-Scroll</a>
+          <a class="design-switch-link" href="index-v5.html">X-Fill</a>
+        </nav>
+        <div class="header-panel-divider" aria-hidden="true"></div>
+        <nav class="nav-tabs">
+          <button class="nav-tab active" data-target="games-section" data-i18n="games">Games</button>
+          <button class="nav-tab" data-target="apps-section" data-i18n="apps">Apps</button>
+          <div class="lang-switch" aria-label="Site language">
+            <button class="lang-switch-btn" data-lang="ru" type="button">RU</button>
+            <button class="lang-switch-btn" data-lang="en" type="button">EN</button>
+          </div>
+        </nav>
+      </div>
+    </header>
+
+    <section class="hero-v4">
+      <div class="hero-v4-copy">
+        <p class="hero-v4-tagline">things I've built</p>
+        <h1 id="hero-title">Mark Severin</h1>
+      </div>
+    </section>
+
+    <section class="section" id="games-section">
+      <div class="section-inner">
+        <div class="section-header">
+          <h2 data-i18n="games">Games</h2>
+          <span class="section-count" id="games-count">0</span>
+        </div>
+      </div>
+      <div class="grid" id="games-grid"></div>
+    </section>
+
+    <div class="server-banner" id="server-banner" hidden>
+      For games to play correctly, use a local server — run <strong>start.bat</strong> or open
+      <a href="http://localhost:3456">http://localhost:3456</a>
+    </div>
+
+    <section class="section" id="apps-section">
+      <div class="section-inner">
+        <div class="section-header">
+          <h2 data-i18n="apps">Apps</h2>
+          <span class="section-count" id="apps-count">0</span>
+        </div>
+        <div class="app-list" id="apps-list"></div>
+      </div>
+    </section>
+  </div>
+
+  <div class="checker-rail checker-rail--up checker-rail--right" aria-hidden="true"></div>
+  <div class="checker-rail checker-rail--down checker-rail--right" aria-hidden="true"></div>
+  <aside class="x-rail x-rail--right" aria-hidden="true"></aside>
+
+  <div class="player-overlay" id="player">
+    <div class="player-bar">
+      <h3 id="player-title"></h3>
+      <button class="modal-close" id="player-close" aria-label="Close game">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M18 6L6 18M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>
+    <div class="player-frame-wrap">
+      <iframe id="game-frame" title="Game player" allow="fullscreen; autoplay"></iframe>
+    </div>
+  </div>
+
+  <script defer src="js/design-v4.js?v=6"></script>
+  <script defer src="data/catalog.js"></script>
+  <script defer src="js/portfolio.js"></script>
+</body>
+</html>

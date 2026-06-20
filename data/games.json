@@ -31,7 +31,7 @@
       },
       "tags": ["arcade", "2 player"],
       "featured": true,
-      "preview": "preview.mp4"
+      "preview": "preview.gif"
     },
     {
       "id": "rotatris",
@@ -44,7 +44,7 @@
       },
       "tags": ["arcade", "puzzle"],
       "featured": false,
-      "preview": "preview.mp4"
+      "preview": "preview.gif"
     },
     {
       "id": "nucleon",
@@ -109,7 +109,7 @@
       },
       "tags": ["arcade", "survival"],
       "featured": false,
-      "preview": "preview.mp4"
+      "preview": "preview.gif"
     },
     {
       "id": "savebruge",

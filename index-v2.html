@@ -3,21 +3,19 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Mark Severin — Living Portfolio</title>
-  <link rel="stylesheet" href="css/styles-v3.css">
+  <title>Mark Severin — Indie Games & Apps</title>
+  <link rel="stylesheet" href="css/styles-v2.css">
 </head>
 <body>
-  <div class="ambient" aria-hidden="true">
-    <div class="particle-field" id="particle-field"></div>
-  </div>
+  <div class="bg-canvas" aria-hidden="true"></div>
 
   <header class="site-header">
     <div class="logo" id="site-title">Mark Severin</div>
     <div class="header-panel">
       <nav class="design-switcher" aria-label="Compare designs">
         <a class="design-switch-link" href="index-classic.html">Classic</a>
-        <a class="design-switch-link" href="index-v2.html">Red</a>
-        <a class="design-switch-link active" href="index.html">Living</a>
+        <a class="design-switch-link active" href="index-v2.html">Red</a>
+        <a class="design-switch-link" href="index.html">Living</a>
         <a class="design-switch-link" href="index-v4.html">X-Scroll</a>
         <a class="design-switch-link" href="index-v5.html">X-Fill</a>
       </nav>
@@ -33,24 +31,31 @@
     </div>
   </header>
 
-  <section class="hero-v3">
-    <div class="hero-v3-copy">
-      <h1 id="hero-title">
-        <span class="hero-v3-line">Mark</span>
-        <span class="hero-v3-line">Severin</span>
-      </h1>
+  <section class="hero-v2">
+    <div class="hero-v2-copy">
+      <p class="hero-v2-eyebrow" data-i18n="heroEyebrow">Indie developer</p>
+      <h1 id="hero-title">Mark Severin</h1>
+      <p class="hero-v2-tagline" id="hero-tagline">HTML5 games and interactive experiments</p>
+    </div>
+    <div class="hero-v2-visual">
+      <div class="hero-accent" aria-hidden="true"></div>
+      <div class="hero-portrait">
+        <span class="hero-portrait-placeholder" aria-hidden="true">MS</span>
+        <img src="assets/portrait.jpg" alt="Mark Severin" loading="eager"
+             onerror="this.style.display='none'">
+      </div>
     </div>
   </section>
 
-  <section class="formation-gap formation-gap--things" id="formation-things" aria-hidden="true"></section>
-
-  <section class="formation-gap formation-gap--games" id="formation-games" aria-hidden="true"></section>
-
   <section class="section" id="games-section">
+    <div class="section-inner">
+      <div class="section-header">
+        <h2 data-i18n="games">Games</h2>
+        <span class="section-count" id="games-count">0</span>
+      </div>
+    </div>
     <div class="grid" id="games-grid"></div>
   </section>
-
-  <section class="formation-gap" id="formation-apps" aria-hidden="true"></section>
 
   <div class="server-banner" id="server-banner" hidden>
     For games to play correctly, use a local server — run <strong>start.bat</strong> or open
@@ -59,6 +64,10 @@
 
   <section class="section" id="apps-section">
     <div class="section-inner">
+      <div class="section-header">
+        <h2 data-i18n="apps">Apps</h2>
+        <span class="section-count" id="apps-count">0</span>
+      </div>
       <div class="app-list" id="apps-list"></div>
     </div>
   </section>
@@ -77,7 +86,6 @@
     </div>
   </div>
 
-  <script defer src="js/design-v3.js?v=15"></script>
   <script defer src="data/catalog.js"></script>
   <script defer src="js/portfolio.js"></script>
 </body>

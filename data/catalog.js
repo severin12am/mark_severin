@@ -1,10 +1,10 @@
 // Game & app catalog — edit this file to add items.
 window.GAME_CATALOG = {
   "site": {
-    "title": { "en": "My Games & Apps", "ru": "Мои игры и приложения" },
+    "title": { "en": "Mark Severin", "ru": "Марк Северин" },
     "tagline": {
-      "en": "HTML5 games and interactive experiments",
-      "ru": "HTML5-игры и интерактивные проекты"
+      "en": "Indie games & apps — built to play.",
+      "ru": "Инди-игры и приложения — созданы для игры."
     }
   },
   "games": [
@@ -32,7 +32,7 @@ window.GAME_CATALOG = {
       },
       "tags": ["arcade", "2 player"],
       "featured": true,
-      "preview": "preview.mp4"
+      "preview": "preview.gif"
     },
     {
       "id": "rotatris",
@@ -45,7 +45,7 @@ window.GAME_CATALOG = {
       },
       "tags": ["arcade", "puzzle"],
       "featured": false,
-      "preview": "preview.mp4"
+      "preview": "preview.gif"
     },
     {
       "id": "nucleon",
@@ -110,7 +110,7 @@ window.GAME_CATALOG = {
       },
       "tags": ["arcade", "survival"],
       "featured": false,
-      "preview": "preview.mp4"
+      "preview": "preview.gif"
     },
     {
       "id": "savebruge",
