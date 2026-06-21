@@ -8,7 +8,28 @@
   const ambient = field.closest('.ambient');
 
   const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const POOL_MAX = reduced ? 0 : 500;
+
+  // Particle count scales with the device so the scatter/formation effect stays
+  // readable everywhere but doesn't melt weaker laptops. The farthest-point
+  // sampler adapts to whatever count it's given, so fewer dots still spell the
+  // words — they're just a little sparser. Fixed at load (resizing never
+  // recreates the pool), which keeps things stable.
+  function maxParticlesForDevice() {
+    if (reduced) return 0;
+    const w = window.innerWidth || 1280;
+    const cores = navigator.hardwareConcurrency || 4;
+    const mem = navigator.deviceMemory || 4;
+    let cap;
+    if (w <= 600) cap = 120;
+    else if (w <= 1024) cap = 220;
+    else if (w <= 1440) cap = 340;
+    else cap = 500;
+    if (cores <= 4 || mem <= 4) cap = Math.min(cap, 240);
+    if (cores <= 2 || mem <= 2) cap = Math.min(cap, 120);
+    return cap;
+  }
+
+  const POOL_MAX = maxParticlesForDevice();
   const DOT_PX = 2;
   const SCATTER_COLORS = ['#ff2d55', '#22d3ee', '#f472b6', '#fbbf24', '#c084fc'];
   const FORM_ANCHOR = { x: 50, y: 50 };
@@ -374,6 +395,21 @@
   let scrollY = 0;
   let raf = 0;
   let tick = 0;
+  let animatingTimer = 0;
+
+  // `will-change` is only hinted while particles are actually moving, then
+  // released ~300ms after motion stops. Holding it permanently on every
+  // particle reserves a compositor layer per dot — cheap on a desktop GPU,
+  // expensive on a laptop. Toggling avoids that idle cost without changing how
+  // the animation looks.
+  function markAnimating() {
+    field.classList.add('particle-field--animating');
+    if (animatingTimer) clearTimeout(animatingTimer);
+    animatingTimer = setTimeout(() => {
+      field.classList.remove('particle-field--animating');
+      animatingTimer = 0;
+    }, 300);
+  }
 
   function onScroll() {
     scrollY = window.scrollY;
@@ -437,6 +473,7 @@
   function update() {
     raf = 0;
     tick += 1;
+    markAnimating();
 
     const { monoThings, monoGames, monoApps, formed, mode } = formationWeights();
     const driveThings = formDrive(monoThings);
@@ -523,6 +560,4 @@
   }
 
   requestAnimationFrame(update);
-  setTimeout(() => preloadFonts().then(rebuildTargets), 120);
-  setTimeout(() => preloadFonts().then(rebuildTargets), 600);
 })();

@@ -103,8 +103,13 @@ body > *:not(.ambient):not(.player-overlay) {
   position: absolute;
   top: 0;
   left: 0;
-  will-change: transform, opacity;
   backface-visibility: hidden;
+}
+
+/* will-change is applied only while the field is animating (toggled from JS),
+   so idle particles don't each reserve a compositor layer. */
+.particle-field--animating .particle {
+  will-change: transform, opacity;
 }
 
 .particle--dot {

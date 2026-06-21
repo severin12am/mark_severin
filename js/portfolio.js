@@ -209,8 +209,19 @@ function toggleEmptySection(sectionId, count) {
 const PLAY_BADGE_SVG =
   '<svg width="18" height="18" viewBox="0 0 24 24" fill="white"><path d="M8 5v14l11-7z"/></svg>';
 
-// Build the inner HTML for a card preview. Media loads natively; on error it
-// reveals the emoji placeholder underneath. Nothing here blocks or awaits.
+// True on data-saver or slow connections — we then skip video previews and let
+// the emoji placeholder stand in as a static poster.
+function prefersLightMedia() {
+  const c = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+  if (!c) return false;
+  if (c.saveData) return true;
+  return ['slow-2g', '2g', '3g'].includes(c.effectiveType);
+}
+
+// Build the inner HTML for a card preview. Images load natively (lazy). Videos
+// are NOT given a src here — they carry data-src and are loaded/played only
+// while on-screen (see setupVideoPreviews), so multiple previews don't all
+// download and decode at once. On error the emoji placeholder underneath shows.
 function previewHtml(item) {
   const placeholder = '<div class="card-preview-placeholder">🎮</div>';
   const badge = `<div class="play-badge">${PLAY_BADGE_SVG}</div>`;
@@ -223,11 +234,61 @@ function previewHtml(item) {
   // onerror hides the broken media so the placeholder below shows through.
   const onError = "this.style.display='none'";
 
-  const media = isVideo
-    ? `<video src="${src}" muted loop playsinline autoplay preload="metadata" onerror="${onError}"></video>`
-    : `<img src="${src}" alt="${escapeHtml(localized(item, 'title'))}" loading="lazy" onerror="${onError}">`;
+  if (isVideo) {
+    if (prefersLightMedia()) return placeholder + badge;
+    return (
+      placeholder +
+      `<video class="card-preview-video" data-src="${src}" muted loop playsinline preload="none" onerror="${onError}"></video>` +
+      badge
+    );
+  }
 
+  const media = `<img src="${src}" alt="${escapeHtml(localized(item, 'title'))}" loading="lazy" onerror="${onError}">`;
   return placeholder + media + badge;
+}
+
+let videoObserver = null;
+
+function getVideoObserver() {
+  if (videoObserver || !('IntersectionObserver' in window)) return videoObserver;
+  videoObserver = new IntersectionObserver(
+    (entries) => {
+      entries.forEach((entry) => {
+        const v = entry.target;
+        if (entry.isIntersecting) {
+          if (!v.src && v.dataset.src) v.src = v.dataset.src;
+          const p = v.play && v.play();
+          if (p && p.catch) p.catch(() => {});
+        } else if (v.pause) {
+          v.pause();
+        }
+      });
+    },
+    // Start loading a touch before the card scrolls into view.
+    { rootMargin: '200px 0px', threshold: 0.1 }
+  );
+  return videoObserver;
+}
+
+// Attach the play/pause observer to all current video previews. Called after
+// every renderGames() so it survives language re-renders.
+function setupVideoPreviews() {
+  const videos = document.querySelectorAll('.card-preview-video');
+  if (!videos.length) return;
+
+  const obs = getVideoObserver();
+  if (!obs) {
+    // No IntersectionObserver support: fall back to loading + playing all.
+    videos.forEach((v) => {
+      if (!v.src && v.dataset.src) v.src = v.dataset.src;
+      const p = v.play && v.play();
+      if (p && p.catch) p.catch(() => {});
+    });
+    return;
+  }
+
+  obs.disconnect();
+  videos.forEach((v) => obs.observe(v));
 }
 
 function renderGames(items) {
@@ -269,6 +330,8 @@ function renderGames(items) {
     if (!item) return;
     card.addEventListener('click', () => openPlayer(item));
   });
+
+  setupVideoPreviews();
 }
 
 function renderApps(items) {
