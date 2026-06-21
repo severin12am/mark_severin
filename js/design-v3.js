@@ -380,9 +380,41 @@
     if (!raf) raf = requestAnimationFrame(update);
   }
 
+  let lastBuildW = 0;
+  let rebuildTimer = 0;
+
   function rebuildTargets() {
+    if (rebuildTimer) {
+      clearTimeout(rebuildTimer);
+      rebuildTimer = 0;
+    }
     phrase = buildPhraseData();
+    lastBuildW = window.innerWidth;
     update();
+  }
+
+  // buildPhraseData() is expensive (~0.5s of main-thread work: canvas text
+  // sampling + O(n^2) farthest-point selection over the particle pool). The
+  // phrase geometry only depends on viewport WIDTH, so height-only changes —
+  // opening the fullscreen player (toggles body overflow), mobile toolbars
+  // collapsing on scroll, lazy media loading — must NOT trigger a rebuild, or
+  // every interaction freezes the page. Width changes are debounced so a
+  // resize drag coalesces into a single rebuild.
+  function scheduleRebuild() {
+    // Ignore sub-threshold width deltas: toggling body overflow (opening the
+    // fullscreen player) adds/removes the scrollbar and nudges innerWidth by a
+    // few px — not worth a full rebuild. Also skip entirely while the player
+    // overlay covers the field.
+    const playerOpen = document.getElementById('player')?.classList.contains('open');
+    if (playerOpen || Math.abs(window.innerWidth - lastBuildW) < 24) {
+      onScroll();
+      return;
+    }
+    if (rebuildTimer) clearTimeout(rebuildTimer);
+    rebuildTimer = setTimeout(() => {
+      rebuildTimer = 0;
+      rebuildTargets();
+    }, 160);
   }
 
   function phraseTargetCount(mode) {
@@ -477,7 +509,7 @@
 
   window.addEventListener('scroll', onScroll, { passive: true });
   window.addEventListener('resize', () => {
-    rebuildTargets();
+    scheduleRebuild();
     onScroll();
   }, { passive: true });
   window.addEventListener('load', () => preloadFonts().then(rebuildTargets));
@@ -486,7 +518,7 @@
 
   if (typeof ResizeObserver !== 'undefined') {
     new ResizeObserver(() => {
-      rebuildTargets();
+      scheduleRebuild();
     }).observe(document.body);
   }
 
