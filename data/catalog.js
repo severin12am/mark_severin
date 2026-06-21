@@ -115,10 +115,9 @@ window.GAME_CATALOG = {
     {
       "id": "savebruge",
       "folder": "SaveBruge",
-      "comingSoon": true,
       "wip": true,
       "languages": ["ru", "en"],
-      "title": { "ru": "Спасти Брюгге", "en": "Save Bruge" },
+      "title": { "ru": "Спасти Брюгге", "en": "Save Bruges" },
       "description": {
         "ru": "Стратегия и защита города — удержите Брюгге от нашествия.",
         "en": "Strategy and city defense — hold Bruge against the invasion."
