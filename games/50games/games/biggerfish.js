@@ -1,142 +1,201 @@
 class BiggerFish extends GameBase {
     constructor() {
-        super("Bigger Fish", "Eat smaller fish to grow. Eat the other player to win!");
+        super("Bigger Fish", "Eat to grow — gobble the rival when you're bigger! First to 50.");
     }
 
     init(w, h) {
         super.init(w, h);
-        this.scoreP1 = 0;
-        this.scoreP2 = 0;
-        
-        this.p1 = { x: 100, y: h/2, r: 15, vx: 0, vy: 0 };
-        this.p2 = { x: w - 100, y: h/2, r: 15, vx: 0, vy: 0 };
-        
+        if (this.scoreP1 === undefined) { this.scoreP1 = 0; this.scoreP2 = 0; }
+        this.p1 = { x: 120, y: h / 2, r: 16, vx: 0, vy: 0 };
+        this.p2 = { x: w - 120, y: h / 2, r: 16, vx: 0, vy: 0 };
         this.npcs = [];
-        for (let i = 0; i < 20; i++) this.spawnNPC();
-        
         this.food = [];
-        for (let i = 0; i < 30; i++) this.spawnFood();
+        for (let i = 0; i < 18; i++) this.spawnNpc();
+        for (let i = 0; i < 25; i++) this.spawnFood();
+        this.eatFlash = 0;
     }
 
-    spawnNPC() {
+    spawnNpc() {
         this.npcs.push({
-            x: Math.random() * this.width,
-            y: Math.random() * this.height,
-            r: 5 + Math.random() * 30,
-            vx: (Math.random() - 0.5) * 100,
-            vy: (Math.random() - 0.5) * 100
+            x: 40 + Math.random() * (this.width - 80),
+            y: 60 + Math.random() * (this.height - 80),
+            r: 6 + Math.random() * 22,
+            vx: (Math.random() - 0.5) * 80,
+            vy: (Math.random() - 0.5) * 80
         });
     }
 
     spawnFood() {
         this.food.push({
-            x: Math.random() * this.width,
-            y: Math.random() * this.height,
-            r: 3
+            x: 30 + Math.random() * (this.width - 60),
+            y: 50 + Math.random() * (this.height - 60),
+            r: 4
         });
+    }
+
+    moveFish(p, up, down, left, right, isCpu, dt) {
+        const speed = Math.max(120, 520 - p.r * 6);
+        if (isCpu) {
+            let target = null;
+            let best = Infinity;
+            for (const f of this.food) {
+                const d = Math.hypot(f.x - p.x, f.y - p.y);
+                if (d < best) { best = d; target = f; }
+            }
+            for (const n of this.npcs) {
+                if (n.r < p.r * 0.95) {
+                    const d = Math.hypot(n.x - p.x, n.y - p.y);
+                    if (d < best) { best = d; target = n; }
+                }
+            }
+            if (this.p1.r < p.r * 0.95) {
+                const d = Math.hypot(this.p1.x - p.x, this.p1.y - p.y);
+                if (d < 180) { target = this.p1; }
+            }
+            if (target) {
+                p.vx += Math.sign(target.x - p.x) * speed * dt * 0.8;
+                p.vy += Math.sign(target.y - p.y) * speed * dt * 0.8;
+            }
+        } else {
+            if (Input.isDown(up)) p.vy -= speed * dt;
+            if (Input.isDown(down)) p.vy += speed * dt;
+            if (Input.isDown(left)) p.vx -= speed * dt;
+            if (Input.isDown(right)) p.vx += speed * dt;
+        }
+        p.vx *= 0.92;
+        p.vy *= 0.92;
+        p.x += p.vx * dt;
+        p.y += p.vy * dt;
+        p.x = Math.max(p.r, Math.min(this.width - p.r, p.x));
+        p.y = Math.max(p.r + 50, Math.min(this.height - p.r, p.y));
+    }
+
+    canEat(eater, prey, food) {
+        if (food) return Math.hypot(eater.x - prey.x, eater.y - prey.y) < eater.r;
+        return eater.r > prey.r * 1.08 && Math.hypot(eater.x - prey.x, eater.y - prey.y) < eater.r * 0.85;
     }
 
     update(dt) {
-        let handleInput = (p, up, down, left, right, isAI) => {
-            let speed = 600 / (p.r * 0.1); // Slower as you get bigger
-            if (isAI) {
-                // Find nearest edible thing
-                let target = null; let minDist = Infinity;
-                for(let f of this.food) {
-                    let d = Math.hypot(f.x - p.x, f.y - p.y);
-                    if(d < minDist) { minDist = d; target = f; }
-                }
-                for(let n of this.npcs) {
-                    if(n.r < p.r) {
-                        let d = Math.hypot(n.x - p.x, n.y - p.y);
-                        if(d < minDist) { minDist = d; target = n; }
-                    }
-                }
-                if (target) {
-                    if(target.x < p.x) p.vx -= speed * dt;
-                    if(target.x > p.x) p.vx += speed * dt;
-                    if(target.y < p.y) p.vy -= speed * dt;
-                    if(target.y > p.y) p.vy += speed * dt;
-                }
-            } else {
-                if (Input.isDown(up)) p.vy -= speed * dt;
-                if (Input.isDown(down)) p.vy += speed * dt;
-                if (Input.isDown(left)) p.vx -= speed * dt;
-                if (Input.isDown(right)) p.vx += speed * dt;
+        if (this.eatFlash > 0) this.eatFlash -= dt;
+
+        this.moveFish(this.p1, 'KeyW', 'KeyS', 'KeyA', 'KeyD', false, dt);
+        this.moveFish(this.p2, 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', GameManager.isSinglePlayer, dt);
+
+        this.npcs.forEach(n => {
+            n.x += n.vx * dt;
+            n.y += n.vy * dt;
+            if (n.x < n.r || n.x > this.width - n.r) n.vx *= -1;
+            if (n.y < n.r + 50 || n.y > this.height - n.r) n.vy *= -1;
+        });
+
+        this.food = this.food.filter(f => {
+            if (this.canEat(this.p1, f, true)) {
+                this.p1.r += 0.4;
+                this.scoreP1++;
+                this.eatFlash = 0.15;
+                AudioManager.tick();
+                return false;
             }
-            p.vx *= 0.95; p.vy *= 0.95;
-            p.x += p.vx * dt; p.y += p.vy * dt;
+            if (this.canEat(this.p2, f, true)) {
+                this.p2.r += 0.4;
+                this.scoreP2++;
+                AudioManager.tick();
+                return false;
+            }
+            return true;
+        });
+        while (this.food.length < 25) this.spawnFood();
 
-            // Boundaries
-            if (p.x < p.r) p.x = p.r; if (p.x > this.width - p.r) p.x = this.width - p.r;
-            if (p.y < p.r) p.y = p.r; if (p.y > this.height - p.r) p.y = this.height - p.r;
-        };
+        this.npcs = this.npcs.filter(n => {
+            if (this.canEat(this.p1, n, false)) {
+                this.p1.r += n.r * 0.15;
+                this.scoreP1 += 5;
+                AudioManager.correct();
+                return false;
+            }
+            if (this.canEat(this.p2, n, false)) {
+                this.p2.r += n.r * 0.15;
+                this.scoreP2 += 5;
+                AudioManager.correct();
+                return false;
+            }
+            return true;
+        });
+        while (this.npcs.length < 18) this.spawnNpc();
 
-        handleInput(this.p1, 'KeyW', 'KeyS', 'KeyA', 'KeyD', false);
-        handleInput(this.p2, 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', GameManager.isSinglePlayer);
-
-        // Update NPCs
-        for (let n of this.npcs) {
-            n.x += n.vx * dt; n.y += n.vy * dt;
-            if (n.x < 0 || n.x > this.width) n.vx *= -1;
-            if (n.y < 0 || n.y > this.height) n.vy *= -1;
+        if (this.canEat(this.p1, this.p2, false)) {
+            this.scoreP1 += 20;
+            AudioManager.correct();
+            GameManager.gameOver(1);
+            return;
+        }
+        if (this.canEat(this.p2, this.p1, false)) {
+            this.scoreP2 += 20;
+            AudioManager.correct();
+            GameManager.gameOver(2);
+            return;
         }
 
-        // Collision logic
-        let checkEat = (eater, target, isFood) => {
-            if (eater.r > target.r * 1.1) {
-                let dist = Math.hypot(eater.x - target.x, eater.y - target.y);
-                if (dist < eater.r) {
-                    eater.r += isFood ? 0.5 : target.r * 0.2;
-                    return true;
-                }
-            }
-            return false;
-        };
+        if (this.scoreP1 >= 50) GameManager.gameOver(1);
+        if (this.scoreP2 >= 50) GameManager.gameOver(2);
+    }
 
-        // Players eating Food
-        this.food = this.food.filter(f => {
-            if (checkEat(this.p1, f, true)) { this.scoreP1++; return false; }
-            if (checkEat(this.p2, f, true)) { this.scoreP2++; return false; }
-            return true;
-        });
-        while(this.food.length < 30) this.spawnFood();
-
-        // Players eating NPCs
-        this.npcs = this.npcs.filter(n => {
-            if (checkEat(this.p1, n, false)) { this.scoreP1 += 5; return false; }
-            if (checkEat(this.p2, n, false)) { this.scoreP2 += 5; return false; }
-            return true;
-        });
-        while(this.npcs.length < 20) this.spawnNPC();
-
-        // Players eating each other
-        if (checkEat(this.p1, this.p2, false)) GameManager.gameOver(1);
-        if (checkEat(this.p2, this.p1, false)) GameManager.gameOver(2);
+    drawFish(ctx, p, color, label) {
+        ctx.fillStyle = color;
+        ctx.strokeStyle = Theme.fg;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        ctx.fillStyle = Theme.fg;
+        ctx.beginPath();
+        ctx.arc(p.x + p.r * 0.35, p.y - p.r * 0.2, Math.max(2, p.r * 0.12), 0, Math.PI * 2);
+        ctx.fill();
+        ctx.font = 'bold 10px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText(label, p.x, p.y + p.r + 12);
     }
 
     render(ctx) {
+        ctx.fillStyle = '#0a1830';
+        ctx.fillRect(0, 0, this.width, this.height);
+
         ctx.fillStyle = Theme.fg;
-        for (let f of this.food) {
-            ctx.beginPath(); ctx.arc(f.x, f.y, f.r, 0, Math.PI*2); ctx.fill();
+        ctx.font = 'bold 18px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText(`Points: ${this.scoreP1} — ${this.scoreP2}  (first to 50 · eat rival = win)`, this.width / 2, 32);
+
+        ctx.fillStyle = Theme.accent;
+        this.food.forEach(f => {
+            ctx.beginPath();
+            ctx.arc(f.x, f.y, f.r, 0, Math.PI * 2);
+            ctx.fill();
+        });
+
+        this.npcs.forEach(n => {
+            ctx.fillStyle = '#667';
+            ctx.strokeStyle = Theme.fg;
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.arc(n.x, n.y, n.r, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+        });
+
+        this.drawFish(ctx, this.p1, Theme.p1, 'P1');
+        this.drawFish(ctx, this.p2, GameManager.isSinglePlayer ? '#8C52FF' : Theme.p2,
+            GameManager.isSinglePlayer ? 'CPU' : 'P2');
+
+        if (this.eatFlash > 0) {
+            ctx.fillStyle = `rgba(255,255,255,${this.eatFlash})`;
+            ctx.fillRect(0, 0, this.width, this.height);
         }
 
-        ctx.lineWidth = 3;
-        for (let n of this.npcs) {
-            ctx.fillStyle = "#888"; ctx.strokeStyle = Theme.fg;
-            ctx.beginPath(); ctx.arc(n.x, n.y, n.r, 0, Math.PI*2); ctx.fill(); ctx.stroke();
-        }
-
-        let drawFish = (p, color) => {
-            ctx.fillStyle = color; ctx.strokeStyle = Theme.fg;
-            ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI*2); ctx.fill(); ctx.stroke();
-            // Eye
-            ctx.fillStyle = Theme.fg;
-            ctx.beginPath(); ctx.arc(p.x + p.r/2, p.y - p.r/3, p.r/5, 0, Math.PI*2); ctx.fill();
-        };
-
-        drawFish(this.p1, Theme.p1);
-        drawFish(this.p2, GameManager.isSinglePlayer ? "#8C52FF" : Theme.p2);
+        ctx.fillStyle = Theme.fg;
+        ctx.font = '13px Arial';
+        ctx.fillText('WASD swim · bigger fish eats smaller', this.width / 2, this.height - 12);
     }
 }
+
 GameManager.registerGame(new BiggerFish());

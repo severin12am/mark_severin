@@ -1,147 +1,168 @@
 class HovercraftDrift extends GameBase {
     constructor() {
-        super("Hovercraft Drift", "Race 3 laps — first to finish wins the round.");
+        super("Hovercraft Drift", "Race 3 laps on the oval! First to 2 round wins.");
     }
 
     init(w, h) {
         super.init(w, h);
-
-        this.lapsToWin = 3;
-        this.trackRadiusX = 280;
-        this.trackRadiusY = 180;
-        this.trackCenterX = w / 2;
-        this.trackCenterY = h / 2 - 20;
-
-        this.resetPlayers();
+        if (this.scoreP1 === undefined) { this.scoreP1 = 0; this.scoreP2 = 0; }
+        this.lapsNeeded = 3;
+        this.cx = w / 2;
+        this.cy = h / 2;
+        this.rx = Math.min(w, h) * 0.38;
+        this.ry = this.rx * 0.62;
+        this.roundMsg = '';
+        this.msgTimer = 0;
+        this.startRace();
     }
 
-    resetPlayers() {
-        this.p1 = {
-            angle: Math.PI * 1.5,
-            speed: 0,
-            maxSpeed: 3.8,
-            accel: 0.14,
-            turnSpeed: 0.038,
-            x: this.trackCenterX + Math.cos(Math.PI * 1.5) * this.trackRadiusX,
-            y: this.trackCenterY + Math.sin(Math.PI * 1.5) * this.trackRadiusY,
-            lap: 0,
-            lastCheckpointAngle: Math.PI * 1.5
-        };
+    startRace() {
+        const a = -Math.PI / 2;
+        this.p1 = this.makeRacer(a, -0.15);
+        this.p2 = this.makeRacer(a, 0.15);
+    }
 
-        this.p2 = {
-            angle: Math.PI * 1.5,
+    makeRacer(angleOffset, spread) {
+        const a = -Math.PI / 2 + angleOffset + spread;
+        return {
+            x: this.cx + Math.cos(a) * this.rx,
+            y: this.cy + Math.sin(a) * this.ry,
+            angle: a + Math.PI / 2,
             speed: 0,
-            maxSpeed: 3.8,
-            accel: 0.14,
-            turnSpeed: 0.038,
-            x: this.trackCenterX + Math.cos(Math.PI * 1.5 + 0.4) * this.trackRadiusX,
-            y: this.trackCenterY + Math.sin(Math.PI * 1.5 + 0.4) * this.trackRadiusY,
             lap: 0,
-            lastCheckpointAngle: Math.PI * 1.5
+            progress: 0,
+            lastProg: 0
         };
+    }
+
+    updateRacer(r, accel, turn, dt) {
+        r.angle += turn * 2.8 * dt * (0.5 + r.speed * 0.15);
+        r.speed += accel * 180 * dt;
+        r.speed *= 0.985;
+        r.speed = Math.max(-60, Math.min(220, r.speed));
+        r.x += Math.cos(r.angle) * r.speed * dt;
+        r.y += Math.sin(r.angle) * r.speed * dt;
+
+        const dx = r.x - this.cx;
+        const dy = r.y - this.cy;
+        const dist = Math.hypot(dx / this.rx, dy / this.ry);
+        if (dist > 1.08) {
+            const nx = dx / dist;
+            const ny = dy / dist;
+            r.x = this.cx + nx * this.rx * 1.02;
+            r.y = this.cy + ny * this.ry * 1.02;
+            const dot = r.speed > 0 ? Math.cos(r.angle) * nx + Math.sin(r.angle) * ny : 0;
+            if (dot > 0) r.speed *= 0.7;
+        }
+
+        const ang = Math.atan2(dy, dx);
+        r.progress = (ang + Math.PI * 2) % (Math.PI * 2);
+        if (r.lastProg > 5.5 && r.progress < 1) r.lap++;
+        r.lastProg = r.progress;
+    }
+
+    cpuSteer(r) {
+        const target = -Math.PI / 2 + Math.PI * 2 * 0.02;
+        let diff = target - r.angle;
+        while (diff > Math.PI) diff -= Math.PI * 2;
+        while (diff < -Math.PI) diff += Math.PI * 2;
+        return Math.sign(diff) * Math.min(Math.abs(diff), 1) * 0.9;
     }
 
     update(dt) {
-        const delta = dt / 16; // rough normalization (~60 fps)
+        if (this.msgTimer > 0) {
+            this.msgTimer -= dt;
+            return;
+        }
 
-        // ──────────────── Player 1 ────────────────
-        let p1Accel = 0;
-        if (Input.isDown('KeyW')) p1Accel = 1;
-        if (Input.isDown('KeyS')) p1Accel = -0.4;
-
-        if (Input.isDown('KeyA')) this.p1.angle -= this.p1.turnSpeed * delta * (this.p1.speed + 1);
-        if (Input.isDown('KeyD')) this.p1.angle += this.p1.turnSpeed * delta * (this.p1.speed + 1);
-
-        this.p1.speed += p1Accel * this.p1.accel * delta;
-        this.p1.speed *= 0.982; // strong drag but not instant stop
-
-        this.p1.x += Math.cos(this.p1.angle) * this.p1.speed * delta;
-        this.p1.y += Math.sin(this.p1.angle) * this.p1.speed * delta;
-
-        this.updateLap(this.p1);
-
-        // ──────────────── Player 2 or CPU ────────────────
-        let p2Accel = 0;
-        let p2Turn = 0;
+        let a1 = 0, t1 = 0;
+        if (Input.isDown('KeyW')) a1 = 1;
+        if (Input.isDown('KeyS')) a1 = -0.4;
+        if (Input.isDown('KeyA')) t1 = -1;
+        if (Input.isDown('KeyD')) t1 = 1;
+        this.updateRacer(this.p1, a1, t1, dt);
 
         if (GameManager.isSinglePlayer) {
-            // Very simple pursuit CPU — tries to follow player 1 angle loosely
-            const angleDiff = this.angleDiff(this.p2.angle, this.p1.angle);
-            p2Turn = angleDiff * 0.8;
-            p2Accel = 0.9 + Math.sin(Date.now() * 0.002) * 0.12; // slight variation
+            this.updateRacer(this.p2, 0.92, this.cpuSteer(this.p2), dt);
         } else {
-            if (Input.isDown('ArrowUp'))    p2Accel = 1;
-            if (Input.isDown('ArrowDown'))  p2Accel = -0.4;
-            if (Input.isDown('ArrowLeft'))  p2Turn = -1;
-            if (Input.isDown('ArrowRight')) p2Turn = 1;
+            let a2 = 0, t2 = 0;
+            if (Input.isDown('ArrowUp')) a2 = 1;
+            if (Input.isDown('ArrowDown')) a2 = -0.4;
+            if (Input.isDown('ArrowLeft')) t2 = -1;
+            if (Input.isDown('ArrowRight')) t2 = 1;
+            this.updateRacer(this.p2, a2, t2, dt);
         }
 
-        this.p2.angle += p2Turn * this.p2.turnSpeed * delta * (this.p2.speed + 1);
-        this.p2.speed += p2Accel * this.p2.accel * delta;
-        this.p2.speed *= 0.982;
-
-        this.p2.x += Math.cos(this.p2.angle) * this.p2.speed * delta;
-        this.p2.y += Math.sin(this.p2.angle) * this.p2.speed * delta;
-
-        this.updateLap(this.p2);
-
-        // Check win
-        if (this.p1.lap >= this.lapsToWin) GameManager.gameOver(1);
-        if (this.p2.lap >= this.lapsToWin) GameManager.gameOver(2);
-    }
-
-    angleDiff(a, b) {
-        let diff = (b - a + Math.PI) % (Math.PI * 2) - Math.PI;
-        return diff;
-    }
-
-    updateLap(player) {
-        const angle = Math.atan2(player.y - this.trackCenterY, player.x - this.trackCenterX);
-        let normAngle = (angle + Math.PI * 2) % (Math.PI * 2);
-
-        if (player.lastCheckpointAngle > 5 && normAngle < 1) {
-            player.lap++;
+        if (this.p1.lap >= this.lapsNeeded) {
+            this.scoreP1++;
+            this.roundMsg = 'P1 WINS RACE!';
+            AudioManager.correct();
+            if (this.scoreP1 >= 2) GameManager.gameOver(1);
+            else { this.msgTimer = 1.2; this.startRace(); }
+        } else if (this.p2.lap >= this.lapsNeeded) {
+            this.scoreP2++;
+            this.roundMsg = GameManager.isSinglePlayer ? 'CPU WINS RACE!' : 'P2 WINS RACE!';
+            AudioManager.wrong();
+            if (this.scoreP2 >= 2) GameManager.gameOver(2);
+            else { this.msgTimer = 1.2; this.startRace(); }
         }
-        player.lastCheckpointAngle = normAngle;
+    }
+
+    drawCraft(ctx, r, color, label) {
+        ctx.save();
+        ctx.translate(r.x, r.y);
+        ctx.rotate(r.angle);
+        ctx.fillStyle = color;
+        ctx.fillRect(-14, -22, 28, 44);
+        ctx.fillStyle = Theme.fg;
+        ctx.fillRect(-6, -18, 12, 10);
+        ctx.restore();
+        ctx.fillStyle = Theme.fg;
+        ctx.font = 'bold 9px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText(`${label} L${r.lap}`, r.x, r.y - 30);
     }
 
     render(ctx) {
-        // Track (oval)
+        ctx.fillStyle = '#0a1828';
+        ctx.fillRect(0, 0, this.width, this.height);
+
+        ctx.fillStyle = Theme.fg;
+        ctx.font = 'bold 18px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText(`Races: ${this.scoreP1} — ${this.scoreP2}  (first to 2 · 3 laps each)`, this.width / 2, 28);
+
         ctx.strokeStyle = Theme.fg;
         ctx.lineWidth = 4;
         ctx.beginPath();
-        ctx.ellipse(this.trackCenterX, this.trackCenterY, this.trackRadiusX, this.trackRadiusY, 0, 0, Math.PI * 2);
+        ctx.ellipse(this.cx, this.cy, this.rx, this.ry, 0, 0, Math.PI * 2);
         ctx.stroke();
 
-        // Center line
         ctx.strokeStyle = Theme.accent;
-        ctx.setLineDash([12, 20]);
+        ctx.setLineDash([10, 16]);
         ctx.beginPath();
-        ctx.ellipse(this.trackCenterX, this.trackCenterY, this.trackRadiusX - 20, this.trackRadiusY - 12, 0, 0, Math.PI * 2);
+        ctx.ellipse(this.cx, this.cy, this.rx - 24, this.ry - 16, 0, 0, Math.PI * 2);
         ctx.stroke();
         ctx.setLineDash([]);
 
-        // Players
-        ctx.fillStyle = Theme.p1;
-        ctx.save();
-        ctx.translate(this.p1.x, this.p1.y);
-        ctx.rotate(this.p1.angle + Math.PI / 2);
-        ctx.fillRect(-12, -20, 24, 40);
-        ctx.restore();
+        ctx.fillStyle = Theme.accent;
+        ctx.beginPath();
+        ctx.arc(this.cx + this.rx, this.cy, 8, 0, Math.PI * 2);
+        ctx.fill();
 
-        ctx.fillStyle = Theme.p2;
-        ctx.save();
-        ctx.translate(this.p2.x, this.p2.y);
-        ctx.rotate(this.p2.angle + Math.PI / 2);
-        ctx.fillRect(-12, -20, 24, 40);
-        ctx.restore();
+        this.drawCraft(ctx, this.p1, Theme.p1, 'P1');
+        this.drawCraft(ctx, this.p2, GameManager.isSinglePlayer ? '#8C52FF' : Theme.p2,
+            GameManager.isSinglePlayer ? 'CPU' : 'P2');
 
-        // Lap counter
+        if (this.roundMsg) {
+            ctx.fillStyle = Theme.accent;
+            ctx.font = 'bold 22px Impact';
+            ctx.fillText(this.roundMsg, this.width / 2, this.height / 2);
+        }
+
         ctx.fillStyle = Theme.fg;
-        ctx.font = "22px monospace";
-        ctx.textAlign = "left";
-        ctx.fillText(`P1 LAP ${this.p1.lap}/${this.lapsToWin}`, 20, 40);
-        ctx.fillText(`P2 LAP ${this.p2.lap}/${this.lapsToWin}`, this.width - 180, 40);
+        ctx.font = '13px Arial';
+        ctx.fillText('W/S throttle · A/D steer  |  Arrows (2P)', this.width / 2, this.height - 12);
     }
 }
 

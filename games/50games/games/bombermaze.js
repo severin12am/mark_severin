@@ -1,189 +1,248 @@
-// games/bombermaze.js
 class BomberMaze extends GameBase {
     constructor() {
-        super("Bomber Maze", "Trap your opponent with bombs — last player standing wins.");
-        this.gridSize = 11;
-        this.cell = 64;
-        this.reset();
+        super("Bomber Maze", "Drop bombs — blast your rival! First to 3.");
     }
 
-    reset() {
-        this.map = Array(this.gridSize).fill().map(()=>Array(this.gridSize).fill(1));
+    init(w, h) {
+        super.init(w, h);
+        if (this.scoreP1 === undefined) { this.scoreP1 = 0; this.scoreP2 = 0; }
+        this.keys = {};
+        this.gridSize = 11;
+        this.cell = Math.min(w, h) / this.gridSize;
+        this.roundMsg = '';
+        this.msgTimer = 0;
+        this.startRound();
+    }
+
+    justPressed(code) {
+        const down = Input.isDown(code);
+        const was = this.keys[code];
+        this.keys[code] = down;
+        return down && !was;
+    }
+
+    startRound() {
+        this.map = Array(this.gridSize).fill().map(() => Array(this.gridSize).fill(1));
         this.bombs = [];
         this.explosions = [];
-        this.players = [
-            { x: 1.5, y: 1.5, color: Theme.p1, alive: true },
-            { x: this.gridSize - 2.5, y: this.gridSize - 2.5, color: Theme.p2, alive: true }
-        ];
-        this.scoreP1 = 0;
-        this.scoreP2 = 0;
+        this.p1 = { x: 1.5, y: 1.5, alive: true };
+        this.p2 = { x: this.gridSize - 2.5, y: this.gridSize - 2.5, alive: true };
 
-        // outer walls already 1, inner random soft walls
         for (let y = 1; y < this.gridSize - 1; y++) {
             for (let x = 1; x < this.gridSize - 1; x++) {
                 if (x % 2 === 1 && y % 2 === 1) continue;
-                if (Math.random() < 0.78) this.map[y][x] = 2; // destructible
+                if (Math.random() < 0.72) this.map[y][x] = 2;
             }
         }
-        // clear spawn areas
         this.map[1][1] = this.map[1][2] = this.map[2][1] = 0;
-        this.map[this.gridSize-2][this.gridSize-2] = this.map[this.gridSize-2][this.gridSize-3] = this.map[this.gridSize-3][this.gridSize-2] = 0;
+        const n = this.gridSize - 2;
+        this.map[n][n] = this.map[n][n - 1] = this.map[n - 1][n] = 0;
     }
 
-    init(w, h) { super.init(w, h); this.reset(); }
-
-    update(dt) {
-        if (!this.players[0].alive && !this.players[1].alive) return;
-
-        // player movement & bomb drop
-        for (let i = 0; i < 2; i++) {
-            let p = this.players[i];
-            if (!p.alive) continue;
-
-            let speed = 3.2;
-            let dx = 0, dy = 0;
-
-            const keys = i === 0 ?
-                {up:'KeyW',down:'KeyS',left:'KeyA',right:'KeyD',bomb:'Space'} :
-                (GameManager.isSinglePlayer ? {} : {up:'ArrowUp',down:'ArrowDown',left:'ArrowLeft',right:'ArrowRight',bomb:'Enter'});
-
-            if ((!GameManager.isSinglePlayer || i === 0) && Input.isDown(keys.up))    dy -= speed * dt;
-            if ((!GameManager.isSinglePlayer || i === 0) && Input.isDown(keys.down))  dy += speed * dt;
-            if ((!GameManager.isSinglePlayer || i === 0) && Input.isDown(keys.left))  dx -= speed * dt;
-            if ((!GameManager.isSinglePlayer || i === 0) && Input.isDown(keys.right)) dx += speed * dt;
-
-            // CPU bomb & move logic (very basic)
-            if (GameManager.isSinglePlayer && i === 1) {
-                let tx = Math.round(this.players[0].x);
-                let ty = Math.round(this.players[0].y);
-                let px = Math.round(p.x);
-                let py = Math.round(p.y);
-
-                if (Math.abs(tx - px) + Math.abs(ty - py) < 4 && Math.random() < 0.008) {
-                    if (this.bombs.length < 3) this.dropBomb(p);
-                }
-
-                dx = (tx - px) * 0.8;
-                dy = (ty - py) * 0.8;
-                let len = Math.sqrt(dx*dx + dy*dy) || 1;
-                dx = dx / len * speed * dt * 0.7;
-                dy = dy / len * speed * dt * 0.7;
-            }
-
-            let nx = p.x + dx, ny = p.y + dy;
-
-            let cx = Math.floor(nx), cy = Math.floor(ny);
-            if (this.map[cy] && this.map[cy][cx] === 0) {
-                p.x = nx; p.y = ny;
-            }
-
-            // drop bomb
-            if ((!GameManager.isSinglePlayer || i === 0) && Input.isDown(keys.bomb)) {
-                if (this.bombs.length < 4 && !this.bombs.some(b=> Math.floor(b.x)===Math.floor(p.x) && Math.floor(b.y)===Math.floor(p.y))) {
-                    this.dropBomb(p);
-                }
-            }
-        }
-
-        // update bombs & explosions
-        this.bombs.forEach(b => {
-            b.timer -= dt;
-            if (b.timer <= 0) {
-                this.explode(b.x, b.y, 2);
-                this.bombs.splice(this.bombs.indexOf(b), 1);
-            }
-        });
-
-        this.explosions = this.explosions.filter(e => {
-            e.timer -= dt;
-            return e.timer > 0;
-        });
-
-        // check player hit by explosion
-        for (let p of this.players) {
-            if (!p.alive) continue;
-            let hit = this.explosions.some(e =>
-                Math.floor(e.x) === Math.floor(p.x) &&
-                Math.floor(e.y) === Math.floor(p.y)
-            );
-            if (hit) {
-                p.alive = false;
-                GameManager.gameOver(this.players[0].alive ? 1 : this.players[1].alive ? 2 : 0);
-            }
-        }
+    walkable(gx, gy) {
+        if (gx < 0 || gy < 0 || gx >= this.gridSize || gy >= this.gridSize) return false;
+        if (this.map[gy][gx] !== 0) return false;
+        return !this.bombs.some(b => Math.round(b.x) === gx && Math.round(b.y) === gy);
     }
 
     dropBomb(p) {
-        this.bombs.push({ x: Math.round(p.x), y: Math.round(p.y), timer: 3.2, owner: p });
+        const bx = Math.round(p.x);
+        const by = Math.round(p.y);
+        if (this.bombs.some(b => Math.round(b.x) === bx && Math.round(b.y) === by)) return;
+        this.bombs.push({ x: bx, y: by, timer: 2.8, power: 2 });
+        AudioManager.select();
     }
 
     explode(x, y, power) {
-        this.addExplosion(x, y);
-        for (let d of [[0,-1],[0,1],[-1,0],[1,0]]) {
+        this.addBlast(x, y);
+        for (const [dx, dy] of [[0, -1], [0, 1], [-1, 0], [1, 0]]) {
             for (let k = 1; k <= power; k++) {
-                let cx = Math.floor(x) + d[0]*k;
-                let cy = Math.floor(y) + d[1]*k;
-                if (cx < 0 || cx >= this.gridSize || cy < 0 || cy >= this.gridSize) break;
-                if (this.map[cy][cx] === 1) break; // hard wall
-                this.addExplosion(cx + 0.5, cy + 0.5);
+                const cx = x + dx * k;
+                const cy = y + dy * k;
+                if (cx < 0 || cy < 0 || cx >= this.gridSize || cy >= this.gridSize) break;
+                if (this.map[cy][cx] === 1) break;
+                this.addBlast(cx, cy);
                 if (this.map[cy][cx] === 2) {
                     this.map[cy][cx] = 0;
                     break;
                 }
             }
         }
+        AudioManager.wrong();
     }
 
-    addExplosion(x, y) {
-        this.explosions.push({ x, y, timer: 0.6 });
+    addBlast(gx, gy) {
+        this.explosions.push({ x: gx, y: gy, timer: 0.55 });
+    }
+
+    hitByBlast(p) {
+        const gx = Math.round(p.x);
+        const gy = Math.round(p.y);
+        return this.explosions.some(e => e.x === gx && e.y === gy);
+    }
+
+    cpuStep(dt) {
+        const p = this.p2;
+        const tx = Math.round(this.p1.x);
+        const ty = Math.round(this.p1.y);
+        const px = Math.round(p.x);
+        const py = Math.round(p.y);
+        const speed = 3.2 * dt;
+
+        if (Math.abs(tx - px) + Math.abs(ty - py) <= 3 && this.bombs.length < 3 && Math.random() < 0.02) {
+            this.dropBomb(p);
+        }
+
+        const opts = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+        let best = null;
+        let bestScore = -999;
+        for (const [dx, dy] of opts) {
+            const nx = px + dx;
+            const ny = py + dy;
+            if (!this.walkable(nx, ny)) continue;
+            const score = Math.abs(tx - nx) + Math.abs(ty - ny) - (this.explosions.some(e => e.x === nx && e.y === ny) ? 50 : 0);
+            if (score > bestScore) { bestScore = score; best = [nx, ny]; }
+        }
+        if (best) {
+            p.x += (best[0] - p.x) * speed * 2.5;
+            p.y += (best[1] - p.y) * speed * 2.5;
+        }
+    }
+
+    movePlayer(p, up, down, left, right, bombKey, dt) {
+        if (!p.alive) return;
+        const speed = 3.2 * dt;
+        let nx = p.x, ny = p.y;
+        if (Input.isDown(up)) ny -= speed;
+        if (Input.isDown(down)) ny += speed;
+        if (Input.isDown(left)) nx -= speed;
+        if (Input.isDown(right)) nx += speed;
+        const gx = Math.round(nx);
+        const gy = Math.round(ny);
+        if (this.walkable(gx, gy) || (Math.round(p.x) === gx && Math.round(p.y) === gy)) {
+            p.x = nx;
+            p.y = ny;
+        }
+        if (this.justPressed(bombKey)) this.dropBomb(p);
+    }
+
+    update(dt) {
+        if (this.msgTimer > 0) {
+            this.msgTimer -= dt;
+            return;
+        }
+
+        this.movePlayer(this.p1, 'KeyW', 'KeyS', 'KeyA', 'KeyD', 'Space', dt);
+        if (GameManager.isSinglePlayer) this.cpuStep(dt);
+        else this.movePlayer(this.p2, 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Enter', dt);
+
+        for (let i = this.bombs.length - 1; i >= 0; i--) {
+            this.bombs[i].timer -= dt;
+            if (this.bombs[i].timer <= 0) {
+                const b = this.bombs.splice(i, 1)[0];
+                this.explode(b.x, b.y, b.power);
+            }
+        }
+
+        this.explosions = this.explosions.filter(e => {
+            e.timer -= dt;
+            return e.timer > 0;
+        });
+
+        if (this.p1.alive && this.hitByBlast(this.p1)) this.p1.alive = false;
+        if (this.p2.alive && this.hitByBlast(this.p2)) this.p2.alive = false;
+
+        if (!this.p1.alive || !this.p2.alive) {
+            if (this.p1.alive && !this.p2.alive) {
+                this.scoreP1++;
+                this.roundMsg = 'P1 BLASTS CPU!';
+                AudioManager.correct();
+            } else if (this.p2.alive && !this.p1.alive) {
+                this.scoreP2++;
+                this.roundMsg = GameManager.isSinglePlayer ? 'CPU WINS ROUND!' : 'P2 BLASTS P1!';
+                AudioManager.wrong();
+            } else {
+                this.roundMsg = 'DOUBLE KO — no point';
+                AudioManager.tick();
+            }
+
+            if (this.scoreP1 >= 3) GameManager.gameOver(1);
+            else if (this.scoreP2 >= 3) GameManager.gameOver(2);
+            else {
+                this.msgTimer = 1.2;
+                this.startRound();
+            }
+        }
     }
 
     render(ctx) {
         ctx.fillStyle = Theme.bg;
         ctx.fillRect(0, 0, this.width, this.height);
 
-        // grid
+        const offX = (this.width - this.gridSize * this.cell) / 2;
+        const offY = (this.height - this.gridSize * this.cell) / 2 + 10;
+
+        ctx.fillStyle = Theme.fg;
+        ctx.font = 'bold 18px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText(`Rounds: ${this.scoreP1} — ${this.scoreP2}  (first to 3)`, this.width / 2, 28);
+
         for (let y = 0; y < this.gridSize; y++) {
             for (let x = 0; x < this.gridSize; x++) {
-                let val = this.map[y][x];
-                if (val === 1) {
-                    ctx.fillStyle = "#444";
-                    ctx.fillRect(x*this.cell, y*this.cell, this.cell, this.cell);
-                } else if (val === 2) {
-                    ctx.fillStyle = "#a66";
-                    ctx.fillRect(x*this.cell+4, y*this.cell+4, this.cell-8, this.cell-8);
+                const px = offX + x * this.cell;
+                const py = offY + y * this.cell;
+                if (this.map[y][x] === 1) {
+                    ctx.fillStyle = '#444';
+                    ctx.fillRect(px, py, this.cell, this.cell);
+                } else if (this.map[y][x] === 2) {
+                    ctx.fillStyle = '#a55';
+                    ctx.fillRect(px + 3, py + 3, this.cell - 6, this.cell - 6);
+                } else {
+                    ctx.fillStyle = '#1a1a2a';
+                    ctx.fillRect(px + 1, py + 1, this.cell - 2, this.cell - 2);
                 }
             }
         }
 
-        // explosions
-        ctx.globalAlpha = 0.9;
-        for (let e of this.explosions) {
+        this.explosions.forEach(e => {
             ctx.fillStyle = Theme.accent;
-            ctx.fillRect((e.x-0.5)*this.cell, (e.y-0.5)*this.cell, this.cell, this.cell);
-        }
+            ctx.globalAlpha = 0.85;
+            ctx.fillRect(offX + e.x * this.cell, offY + e.y * this.cell, this.cell, this.cell);
+        });
         ctx.globalAlpha = 1;
 
-        // bombs
-        for (let b of this.bombs) {
-            ctx.fillStyle = "#222";
+        this.bombs.forEach(b => {
+            const cx = offX + b.x * this.cell + this.cell / 2;
+            const cy = offY + b.y * this.cell + this.cell / 2;
+            ctx.fillStyle = Theme.fg;
             ctx.beginPath();
-            ctx.arc(b.x*this.cell, b.y*this.cell, 22, 0, Math.PI*2);
+            ctx.arc(cx, cy, this.cell * 0.28, 0, Math.PI * 2);
             ctx.fill();
             ctx.fillStyle = Theme.accent;
+            ctx.font = 'bold 12px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText(Math.ceil(b.timer), cx, cy + 4);
+        });
+
+        const drawP = (p, color) => {
+            if (!p.alive) return;
+            ctx.fillStyle = color;
             ctx.beginPath();
-            ctx.arc(b.x*this.cell, b.y*this.cell, 14, 0, Math.PI*2);
+            ctx.arc(offX + p.x * this.cell, offY + p.y * this.cell, this.cell * 0.32, 0, Math.PI * 2);
             ctx.fill();
+        };
+        drawP(this.p1, Theme.p1);
+        drawP(this.p2, GameManager.isSinglePlayer ? '#8C52FF' : Theme.p2);
+
+        if (this.roundMsg) {
+            ctx.fillStyle = Theme.accent;
+            ctx.font = 'bold 22px Impact';
+            ctx.fillText(this.roundMsg, this.width / 2, this.height - 24);
         }
 
-        // players
-        for (let p of this.players) {
-            if (!p.alive) continue;
-            ctx.fillStyle = p.color;
-            ctx.beginPath();
-            ctx.arc(p.x*this.cell, p.y*this.cell, 30, 0, Math.PI*2);
-            ctx.fill();
-        }
+        ctx.fillStyle = Theme.fg;
+        ctx.font = '13px Arial';
+        ctx.fillText('WASD move · SPACE bomb  |  Arrows · ENTER (2P)', this.width / 2, this.height - 6);
     }
 }
 

@@ -1,154 +1,153 @@
-// games/cratestacker.js
 class CrateStacker extends GameBase {
     constructor() {
-        super("Crate Stacker", "Build the tallest stable tower — highest wins round.");
-        this.reset();
-    }
-
-    reset() {
-        this.crates = [];
-        this.players = [
-            { x: 280, score: 0, color: Theme.p1 },
-            { x: 520, score: 0, color: Theme.p2 }
-        ];
-        this.fallingCrate = null;
-        this.timeSinceDrop = 0;
-        this.scoreP1 = 0;
-        this.scoreP2 = 0;
-        this.gameActive = true;
+        super("Crate Stacker", "Catch falling crates on your stack! First to 8 wins.");
     }
 
     init(w, h) {
         super.init(w, h);
-        this.reset();
+        if (this.scoreP1 === undefined) { this.scoreP1 = 0; this.scoreP2 = 0; }
+        this.p1 = { x: w * 0.3, stack: [] };
+        this.p2 = { x: w * 0.7, stack: [] };
+        this.falling = null;
+        this.dropTimer = 1.2;
+        this.groundY = h - 50;
+    }
+
+    spawnCrate() {
+        this.falling = {
+            x: 80 + Math.random() * (this.width - 160),
+            y: -40,
+            size: 48 + Math.random() * 20,
+            vy: 0
+        };
+        AudioManager.tick();
+    }
+
+    stackTop(stack) {
+        if (!stack.length) return this.groundY;
+        const top = stack[stack.length - 1];
+        return top.y - top.size / 2;
     }
 
     update(dt) {
-        if (!this.gameActive) return;
+        const move = 260 * dt;
+        if (Input.isDown('KeyA')) this.p1.x -= move;
+        if (Input.isDown('KeyD')) this.p1.x += move;
+        this.p1.x = Math.max(60, Math.min(this.width / 2 - 40, this.p1.x));
 
-        this.timeSinceDrop += dt;
+        if (GameManager.isSinglePlayer) {
+            if (this.falling) {
+                const tx = this.falling.x;
+                this.p2.x += Math.sign(tx - this.p2.x) * Math.min(Math.abs(tx - this.p2.x), move * 0.85);
+            }
+            this.p2.x = Math.max(this.width / 2 + 40, Math.min(this.width - 60, this.p2.x));
+        } else {
+            if (Input.isDown('ArrowLeft')) this.p2.x -= move;
+            if (Input.isDown('ArrowRight')) this.p2.x += move;
+            this.p2.x = Math.max(this.width / 2 + 40, Math.min(this.width - 60, this.p2.x));
+        }
 
-        // drop new crate every ~3.5–5 seconds
-        if (!this.fallingCrate && this.timeSinceDrop > 3.2 + Math.random() * 1.8) {
-            this.fallingCrate = {
-                x: Math.random() * (this.width - 120) + 60,
-                y: -80,
-                size: 70 + Math.random() * 40,
-                rot: Math.random() * 0.4 - 0.2,
-                rotSpeed: (Math.random() - 0.5) * 1.8
+        this.dropTimer -= dt;
+        if (!this.falling && this.dropTimer <= 0) {
+            this.spawnCrate();
+            this.dropTimer = 1.4 + Math.random() * 0.6;
+        }
+
+        if (this.falling) {
+            this.falling.vy += 420 * dt;
+            this.falling.y += this.falling.vy * dt;
+
+            const assign = (player, side) => {
+                const topY = this.stackTop(player.stack);
+                const landY = topY - this.falling.size / 2;
+                if (this.falling.y + this.falling.size / 2 >= landY &&
+                    Math.abs(this.falling.x - player.x) < this.falling.size * 0.55 + 20) {
+                    player.stack.push({
+                        x: player.x,
+                        y: landY,
+                        size: this.falling.size
+                    });
+                    this.falling = null;
+                    AudioManager.move();
+                    if (player.stack.length >= 8) {
+                        if (side === 1) {
+                            this.scoreP1++;
+                            GameManager.gameOver(1);
+                        } else {
+                            this.scoreP2++;
+                            GameManager.gameOver(2);
+                        }
+                    }
+                    return true;
+                }
+                return false;
             };
-            this.timeSinceDrop = 0;
-        }
 
-        if (this.fallingCrate) {
-            this.fallingCrate.y += 220 * dt;
-            this.fallingCrate.rot += this.fallingCrate.rotSpeed * dt;
-
-            // land on top crate or ground
-            let landed = false;
-            let topY = this.height - 60;
-
-            for (let c of this.crates) {
-                if (Math.abs(c.x - this.fallingCrate.x) < (c.size + this.fallingCrate.size) / 2 - 20 &&
-                    c.y < topY) {
-                    topY = c.y - c.size / 2 - 4;
-                }
-            }
-
-            if (this.fallingCrate.y + this.fallingCrate.size / 2 > topY) {
-                this.fallingCrate.y = topY - this.fallingCrate.size / 2;
-                this.fallingCrate.rotSpeed *= 0.2;
-                this.crates.push(this.fallingCrate);
-                this.fallingCrate = null;
-
-                // check stability / collapse (very simple)
-                if (Math.random() < 0.07 && this.crates.length > 5) {
-                    this.crates.pop();
-                }
+            if (this.falling.y > this.groundY + 40) {
+                this.falling = null;
+                AudioManager.wrong();
+            } else {
+                assign(this.p1, 1) || assign(this.p2, 2);
             }
         }
+    }
 
-        // player input — move left/right
-        for (let i = 0; i < 2; i++) {
-            let p = this.players[i];
-            let left = i === 0 ? 'KeyA' : 'ArrowLeft';
-            let right = i === 0 ? 'KeyD' : 'ArrowRight';
-
-            let speed = 180;
-            if (Input.isDown(left)) p.x -= speed * dt;
-            if (Input.isDown(right)) p.x += speed * dt;
-
-            p.x = Math.max(60, Math.min(this.width - 60, p.x));
-
-            // CPU very basic — tries to stay under falling crate
-            if (GameManager.isSinglePlayer && i === 1 && this.fallingCrate) {
-                let target = this.fallingCrate.x;
-                if (Math.abs(p.x - target) > 30) {
-                    p.x += Math.sign(target - p.x) * 140 * dt;
-                }
-            }
-        }
-
-        // score = tallest stack height
-        let maxHeight = 0;
-        this.crates.forEach(c => {
-            let h = this.height - (c.y - c.size / 2);
-            if (h > maxHeight) maxHeight = h;
+    drawStack(ctx, player, color, label, flip) {
+        player.stack.forEach(c => {
+            ctx.fillStyle = Theme.fg;
+            ctx.fillRect(c.x - c.size / 2, c.y - c.size / 2, c.size, c.size);
+            ctx.strokeStyle = Theme.accent;
+            ctx.lineWidth = 2;
+            ctx.strokeRect(c.x - c.size / 2, c.y - c.size / 2, c.size, c.size);
         });
-
-        if (maxHeight > 480) {
-            // very tall — end round
-            let p1height = this.players[0].x < this.width / 2 ? maxHeight : 0;
-            let p2height = this.players[1].x < this.width / 2 ? maxHeight : 0;
-
-            if (p1height > p2height + 40) {
-                this.scoreP1++;
-                GameManager.gameOver(1);
-            } else if (p2height > p1height + 40) {
-                this.scoreP2++;
-                GameManager.gameOver(2);
-            } else if (maxHeight > 620) {
-                GameManager.gameOver(0); // close enough = draw
-            }
-        }
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.moveTo(player.x - 28, this.groundY + 8);
+        ctx.lineTo(player.x + 28, this.groundY + 8);
+        ctx.lineTo(player.x, this.groundY - 38);
+        ctx.closePath();
+        ctx.fill();
+        ctx.fillStyle = Theme.fg;
+        ctx.font = 'bold 11px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText(`${label} (${player.stack.length}/8)`, player.x, this.groundY + 24);
     }
 
     render(ctx) {
         ctx.fillStyle = Theme.bg;
         ctx.fillRect(0, 0, this.width, this.height);
 
-        // crates
-        ctx.lineWidth = 5;
-        for (let c of this.crates) {
-            ctx.save();
-            ctx.translate(c.x, c.y);
-            ctx.rotate(c.rot);
-            ctx.fillStyle = Theme.fg;
-            ctx.fillRect(-c.size/2, -c.size/2, c.size, c.size);
-            ctx.strokeStyle = Theme.accent;
-            ctx.strokeRect(-c.size/2, -c.size/2, c.size, c.size);
-            ctx.restore();
-        }
+        ctx.fillStyle = Theme.fg;
+        ctx.font = 'bold 18px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText(`Stack height race — first to 8 crates!`, this.width / 2, 32);
 
-        if (this.fallingCrate) {
-            ctx.save();
-            ctx.translate(this.fallingCrate.x, this.fallingCrate.y);
-            ctx.rotate(this.fallingCrate.rot);
+        ctx.strokeStyle = Theme.accent;
+        ctx.beginPath();
+        ctx.moveTo(this.width / 2, 50);
+        ctx.lineTo(this.width / 2, this.height);
+        ctx.stroke();
+
+        ctx.fillStyle = Theme.fg;
+        ctx.fillRect(0, this.groundY, this.width, this.height - this.groundY);
+
+        this.drawStack(ctx, this.p1, Theme.p1, 'P1', false);
+        this.drawStack(ctx, this.p2, GameManager.isSinglePlayer ? '#8C52FF' : Theme.p2,
+            GameManager.isSinglePlayer ? 'CPU' : 'P2', true);
+
+        if (this.falling) {
             ctx.fillStyle = Theme.accent;
-            ctx.fillRect(-this.fallingCrate.size/2, -this.fallingCrate.size/2, this.fallingCrate.size, this.fallingCrate.size);
-            ctx.restore();
+            ctx.fillRect(
+                this.falling.x - this.falling.size / 2,
+                this.falling.y - this.falling.size / 2,
+                this.falling.size,
+                this.falling.size
+            );
         }
 
-        // player indicators (arrows at bottom)
-        for (let p of this.players) {
-            ctx.fillStyle = p.color;
-            ctx.beginPath();
-            ctx.moveTo(p.x - 30, this.height - 20);
-            ctx.lineTo(p.x + 30, this.height - 20);
-            ctx.lineTo(p.x, this.height - 70);
-            ctx.closePath();
-            ctx.fill();
-        }
+        ctx.fillStyle = Theme.fg;
+        ctx.font = '13px Arial';
+        ctx.fillText('A/D position under falling crates · Arrows (2P)', this.width / 2, this.height - 12);
     }
 }
 

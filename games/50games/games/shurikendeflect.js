@@ -1,153 +1,197 @@
-// games/shurikendeflect.js
 class ShurikenDeflect extends GameBase {
     constructor() {
-        super("Shuriken Deflect", "Throw and parry bouncing ninja stars — last one standing wins.");
-        this.reset();
-    }
-
-    reset() {
-        this.players = [
-            { x: 250, y: 300, vx: 0, vy: 0, color: Theme.p1, alive: true },
-            { x: 550, y: 300, vx: 0, vy: 0, color: Theme.p2, alive: true }
-        ];
-        this.stars = [];
-        this.scoreP1 = 0;
-        this.scoreP2 = 0;
-        this.speedMultiplier = 1;
+        super("Shuriken Deflect", "Parry bouncing stars — miss and you're out! First to 3.");
     }
 
     init(w, h) {
         super.init(w, h);
-        this.reset();
+        if (this.scoreP1 === undefined) { this.scoreP1 = 0; this.scoreP2 = 0; }
+        this.keys = {};
+        this.roundMsg = '';
+        this.msgTimer = 0;
+        this.startRound();
+    }
+
+    justPressed(code) {
+        const down = Input.isDown(code);
+        const was = this.keys[code];
+        this.keys[code] = down;
+        return down && !was;
+    }
+
+    startRound() {
+        this.p1 = { x: this.width * 0.3, y: this.height / 2, parry: 0, alive: true };
+        this.p2 = { x: this.width * 0.7, y: this.height / 2, parry: 0, alive: true };
+        this.stars = [];
+        this.time = 0;
+        this.spawnTimer = 0.8;
+        this.ramp = 1;
+    }
+
+    spawnStar() {
+        const a = Math.random() * Math.PI * 2;
+        const spd = 200 * this.ramp;
+        this.stars.push({
+            x: this.width / 2 + Math.cos(a) * 40,
+            y: this.height / 2 + Math.sin(a) * 40,
+            vx: Math.cos(a) * spd,
+            vy: Math.sin(a) * spd,
+            size: 16
+        });
+    }
+
+    movePlayer(p, left, right, up, down, parryKey, isCpu, dt) {
+        if (!p.alive) return;
+        const speed = 230 * dt;
+        if (isCpu) {
+            let fx = 0, fy = 0;
+            for (const s of this.stars) {
+                const d = Math.hypot(s.x - p.x, s.y - p.y);
+                if (d < 100) {
+                    fx += (p.x - s.x) / d;
+                    fy += (p.y - s.y) / d;
+                }
+            }
+            p.x += fx * speed * 0.9;
+            p.y += fy * speed * 0.9;
+            const nearest = this.stars.reduce((best, s) =>
+                Math.hypot(s.x - p.x, s.y - p.y) < Math.hypot(best.x - p.x, best.y - p.y) ? s : best, this.stars[0]);
+            if (nearest && Math.hypot(nearest.x - p.x, nearest.y - p.y) < 50) {
+                p.parry = 0.25;
+            }
+        } else {
+            if (Input.isDown(left)) p.x -= speed;
+            if (Input.isDown(right)) p.x += speed;
+            if (Input.isDown(up)) p.y -= speed;
+            if (Input.isDown(down)) p.y += speed;
+            if (this.justPressed(parryKey)) p.parry = 0.3;
+        }
+        if (p.parry > 0) p.parry -= dt;
+        p.x = Math.max(35, Math.min(this.width - 35, p.x));
+        p.y = Math.max(70, Math.min(this.height - 35, p.y));
     }
 
     update(dt) {
-        this.speedMultiplier = 1 + (Date.now() % 8000) / 8000; // slowly gets harder
-
-        // player movement
-        for (let i = 0; i < 2; i++) {
-            let p = this.players[i];
-            if (!p.alive) continue;
-
-            let speed = 240;
-            let ax = 0, ay = 0;
-
-            if (i === 0 || !GameManager.isSinglePlayer) {
-                if (Input.isDown(i === 0 ? 'KeyA' : 'ArrowLeft'))  ax -= 1;
-                if (Input.isDown(i === 0 ? 'KeyD' : 'ArrowRight')) ax += 1;
-                if (Input.isDown(i === 0 ? 'KeyW' : 'ArrowUp'))    ay -= 1;
-                if (Input.isDown(i === 0 ? 'KeyS' : 'ArrowDown'))  ay += 1;
-            }
-
-            // CPU follows nearest star + random dodge
-            if (GameManager.isSinglePlayer && i === 1) {
-                let closest = this.stars.reduce((a, b) => 
-                    Math.hypot(a.x - p.x, a.y - p.y) < Math.hypot(b.x - p.x, b.y - p.y) ? a : b, this.stars[0] || {x:400,y:200});
-                ax = (closest.x - p.x) * 0.006;
-                ay = (closest.y - p.y) * 0.006;
-            }
-
-            p.vx = ax * speed;
-            p.vy = ay * speed;
-            p.x += p.vx * dt;
-            p.y += p.vy * dt;
-
-            p.x = Math.max(40, Math.min(this.width - 40, p.x));
-            p.y = Math.max(40, Math.min(this.height - 40, p.y));
+        if (this.msgTimer > 0) {
+            this.msgTimer -= dt;
+            return;
         }
 
-        // spawn stars
-        if (this.stars.length < 5 && Math.random() < 0.035) {
-            this.stars.push({
-                x: Math.random() * this.width,
-                y: Math.random() * this.height,
-                vx: (Math.random() - 0.5) * 420 * this.speedMultiplier,
-                vy: (Math.random() - 0.5) * 420 * this.speedMultiplier,
-                size: 18
-            });
+        this.time += dt;
+        this.ramp = 1 + this.time * 0.08;
+        this.spawnTimer -= dt;
+        if (this.spawnTimer <= 0 && this.stars.length < 6) {
+            this.spawnStar();
+            this.spawnTimer = Math.max(0.25, 0.7 - this.time * 0.03);
         }
 
-        // update stars
-        for (let s of this.stars) {
+        this.movePlayer(this.p1, 'KeyA', 'KeyD', 'KeyW', 'KeyS', 'Space', false, dt);
+        this.movePlayer(this.p2, 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Enter', GameManager.isSinglePlayer, dt);
+
+        for (const s of this.stars) {
             s.x += s.vx * dt;
             s.y += s.vy * dt;
+            if (s.x < 30) { s.x = 30; s.vx = Math.abs(s.vx); }
+            if (s.x > this.width - 30) { s.x = this.width - 30; s.vx = -Math.abs(s.vx); }
+            if (s.y < 60) { s.y = 60; s.vy = Math.abs(s.vy); }
+            if (s.y > this.height - 30) { s.y = this.height - 30; s.vy = -Math.abs(s.vy); }
 
-            // bounce
-            if (s.x < 30 || s.x > this.width - 30) s.vx *= -1;
-            if (s.y < 30 || s.y > this.height - 30) s.vy *= -1;
-
-            // player collision
-            for (let i = 0; i < 2; i++) {
-                let p = this.players[i];
-                if (!p.alive) continue;
-                if (Math.hypot(p.x - s.x, p.y - s.y) < 42) {
-                    // parry attempt
-                    let dx = p.x - s.x;
-                    let dy = p.y - s.y;
-                    let len = Math.hypot(dx, dy) || 1;
-                    if ((i === 0 && Input.isDown('Space')) || (i === 1 && (GameManager.isSinglePlayer ? Math.random() < 0.4 : Input.isDown('Enter')))) {
-                        // successful parry — reflect and speed up
-                        s.vx = (dx / len) * 580;
-                        s.vy = (dy / len) * 580;
-                        this.speedMultiplier += 0.15;
-                    } else {
-                        // hit!
-                        p.alive = false;
-                        if (i === 0) {
-                            this.scoreP2++;
-                            GameManager.gameOver(2);
-                        } else {
-                            this.scoreP1++;
-                            GameManager.gameOver(1);
-                        }
-                        return;
-                    }
+            const hit = (p, idx) => {
+                if (!p.alive) return;
+                if (Math.hypot(p.x - s.x, p.y - s.y) >= 38) return;
+                if (p.parry > 0) {
+                    const dx = p.x - s.x, dy = p.y - s.y;
+                    const len = Math.hypot(dx, dy) || 1;
+                    s.vx = (dx / len) * 520 * this.ramp;
+                    s.vy = (dy / len) * 520 * this.ramp;
+                    AudioManager.move();
+                    return;
                 }
-            }
+                p.alive = false;
+                if (idx === 0) {
+                    this.scoreP2++;
+                    this.roundMsg = GameManager.isSinglePlayer ? 'CPU WINS ROUND!' : 'P2 WINS ROUND!';
+                    AudioManager.wrong();
+                } else {
+                    this.scoreP1++;
+                    this.roundMsg = 'P1 WINS ROUND!';
+                    AudioManager.correct();
+                }
+                if (this.scoreP1 >= 3) GameManager.gameOver(1);
+                else if (this.scoreP2 >= 3) GameManager.gameOver(2);
+                else {
+                    this.msgTimer = 1.1;
+                    this.startRound();
+                }
+            };
+            hit(this.p1, 0);
+            if (this.msgTimer > 0) return;
+            hit(this.p2, 1);
+            if (this.msgTimer > 0) return;
         }
+    }
 
-        // both dead = draw
-        if (!this.players[0].alive && !this.players[1].alive) GameManager.gameOver(0);
+    drawStar(ctx, s) {
+        ctx.save();
+        ctx.translate(s.x, s.y);
+        ctx.rotate(Math.atan2(s.vy, s.vx));
+        ctx.strokeStyle = Theme.accent;
+        ctx.lineWidth = 3;
+        for (let i = 0; i < 4; i++) {
+            ctx.rotate(Math.PI / 2);
+            ctx.beginPath();
+            ctx.moveTo(0, -s.size);
+            ctx.lineTo(0, -s.size * 0.4);
+            ctx.stroke();
+        }
+        ctx.restore();
     }
 
     render(ctx) {
         ctx.fillStyle = Theme.bg;
         ctx.fillRect(0, 0, this.width, this.height);
 
-        // stars (ninja stars)
-        ctx.strokeStyle = Theme.accent;
-        ctx.lineWidth = 5;
-        for (let s of this.stars) {
-            ctx.save();
-            ctx.translate(s.x, s.y);
-            ctx.rotate(Math.atan2(s.vy, s.vx));
-            ctx.beginPath();
-            ctx.moveTo(0, -s.size);
-            ctx.lineTo(8, 6);
-            ctx.lineTo(-8, 6);
-            ctx.closePath();
-            ctx.stroke();
-            ctx.restore();
-        }
+        ctx.fillStyle = Theme.fg;
+        ctx.font = 'bold 18px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText(`Rounds: ${this.scoreP1} — ${this.scoreP2}  (first to 3)`, this.width / 2, 32);
+        ctx.font = '12px Arial';
+        ctx.fillStyle = Theme.accent;
+        ctx.fillText('SPACE / ENTER parry when star hits you', this.width / 2, 50);
 
-        // players
-        for (let p of this.players) {
-            if (!p.alive) continue;
-            ctx.fillStyle = p.color;
+        this.stars.forEach(s => this.drawStar(ctx, s));
+
+        const drawNinja = (p, color, label) => {
+            if (!p.alive) return;
+            ctx.fillStyle = color;
             ctx.beginPath();
-            ctx.arc(p.x, p.y, 32, 0, Math.PI * 2);
+            ctx.arc(p.x, p.y, 24, 0, Math.PI * 2);
             ctx.fill();
-
-            // parry flash
-            if ((p.color === Theme.p1 && Input.isDown('Space')) || 
-                (p.color === Theme.p2 && ((GameManager.isSinglePlayer && Math.random() < 0.2) || Input.isDown('Enter')))) {
+            if (p.parry > 0) {
                 ctx.strokeStyle = Theme.accent;
-                ctx.lineWidth = 9;
+                ctx.lineWidth = 4;
                 ctx.beginPath();
-                ctx.arc(p.x, p.y, 46, 0, Math.PI * 2);
+                ctx.arc(p.x, p.y, 36, 0, Math.PI * 2);
                 ctx.stroke();
             }
+            ctx.fillStyle = Theme.fg;
+            ctx.font = 'bold 9px Arial';
+            ctx.fillText(label, p.x, p.y + 38);
+        };
+
+        drawNinja(this.p1, Theme.p1, 'P1');
+        drawNinja(this.p2, GameManager.isSinglePlayer ? '#8C52FF' : Theme.p2,
+            GameManager.isSinglePlayer ? 'CPU' : 'P2');
+
+        if (this.roundMsg) {
+            ctx.fillStyle = Theme.accent;
+            ctx.font = 'bold 22px Impact';
+            ctx.fillText(this.roundMsg, this.width / 2, this.height / 2);
         }
+
+        ctx.fillStyle = Theme.fg;
+        ctx.font = '13px Arial';
+        ctx.fillText('WASD move · SPACE parry  |  Arrows · ENTER (2P)', this.width / 2, this.height - 12);
     }
 }
 
