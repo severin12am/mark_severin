@@ -1,76 +1,123 @@
-// games/pactag.js
 class PacTag extends GameBase {
     constructor() {
-        super("Pac-Tag", "Tag the other player — longest survival wins!");
-        this.reset();
-    }
-
-    reset() {
-        this.players = [
-            { x: 200, y: 300, color: Theme.p1, isHunter: true, score: 0 },
-            { x: 600, y: 300, color: Theme.p2, isHunter: false, score: 0 }
-        ];
-        this.timeLeft = 45;
-        this.scoreP1 = 0;
-        this.scoreP2 = 0;
+        super("Pac-Tag", "Ghost chases runner on the maze! Tag to swap — first to 5 tags.");
     }
 
     init(w, h) {
         super.init(w, h);
-        this.reset();
+        if (this.scoreP1 === undefined) { this.scoreP1 = 0; this.scoreP2 = 0; }
+        this.startRound();
+    }
+
+    startRound() {
+        this.cols = 19;
+        this.rows = 13;
+        this.cell = Math.min(36, (this.width - 40) / this.cols);
+        this.ox = (this.width - this.cols * this.cell) / 2;
+        this.oy = 72;
+
+        this.maze = [
+            '###################',
+            '#.................#',
+            '#.###.#####.###..#',
+            '#.#.......#.....#',
+            '#.#.###.#.#.###.#',
+            '#...#...#.....#.#',
+            '###.#.#####.###.#',
+            '#.....#.......#.#',
+            '#.#####.###.#.#.#',
+            '#.......#...#...#',
+            '#.#####.#.#####.#',
+            '#.................#',
+            '###################'
+        ];
+
+        this.p1 = { gx: 1, gy: 1, x: 0, y: 0, hunter: false };
+        this.p2 = { gx: 17, gy: 11, x: 0, y: 0, hunter: true };
+        this.syncWorldPos(this.p1);
+        this.syncWorldPos(this.p2);
+        this.tagFlash = 0;
+        this.tagMsg = '';
+        this.passCd = 0;
+    }
+
+    syncWorldPos(p) {
+        p.x = this.ox + p.gx * this.cell + this.cell / 2;
+        p.y = this.oy + p.gy * this.cell + this.cell / 2;
+    }
+
+    isOpen(gx, gy) {
+        if (gx < 0 || gy < 0 || gx >= this.cols || gy >= this.rows) return false;
+        return this.maze[gy][gx] === '.';
+    }
+
+    tryMove(p, dx, dy) {
+        const nx = p.gx + dx;
+        const ny = p.gy + dy;
+        if (!this.isOpen(nx, ny)) return;
+        p.gx = nx;
+        p.gy = ny;
+        this.syncWorldPos(p);
     }
 
     update(dt) {
-        this.timeLeft -= dt;
-        if (this.timeLeft <= 0) {
-            // time up — hunter wins
-            let hunter = this.players[0].isHunter ? 0 : 1;
-            if (hunter === 0) this.scoreP1++; else this.scoreP2++;
-            GameManager.gameOver(hunter === 0 ? 1 : 2);
-            return;
-        }
+        const speed = 210 * dt;
+        this.passCd = Math.max(0, this.passCd - dt);
+        if (this.tagFlash > 0) this.tagFlash -= dt;
 
-        for (let i = 0; i < 2; i++) {
-            let p = this.players[i];
-            let speed = p.isHunter ? 210 : 245; // runner slightly faster
-
-            let dx = 0, dy = 0;
-            const keys = i === 0 ?
-                {up:'KeyW',down:'KeyS',left:'KeyA',right:'KeyD'} :
-                (GameManager.isSinglePlayer ? {} : {up:'ArrowUp',down:'ArrowDown',left:'ArrowLeft',right:'ArrowRight'});
-
-            if ((!GameManager.isSinglePlayer || i === 0) && Input.isDown(keys.up)) dy -= 1;
-            if ((!GameManager.isSinglePlayer || i === 0) && Input.isDown(keys.down)) dy += 1;
-            if ((!GameManager.isSinglePlayer || i === 0) && Input.isDown(keys.left)) dx -= 1;
-            if ((!GameManager.isSinglePlayer || i === 0) && Input.isDown(keys.right)) dx += 1;
-
-            if (GameManager.isSinglePlayer && i === 1) {
-                // CPU flees or chases depending on role
-                let target = this.players[0];
-                dx = (p.isHunter ? target.x - p.x : p.x - target.x);
-                dy = (p.isHunter ? target.y - p.y : p.y - target.y);
+        const movePlayer = (p, up, down, left, right, isCpu) => {
+            let dx = 0;
+            let dy = 0;
+            if (isCpu) {
+                const target = this.p1.hunter ? this.p2 : this.p1;
+                const flee = p.hunter ? target : this.p1;
+                const tx = p.hunter ? target.gx : flee.gx;
+                const ty = p.hunter ? target.gy : flee.gy;
+                if (Math.abs(p.gx - tx) > Math.abs(p.gy - ty)) dx = Math.sign(tx - p.gx);
+                else dy = Math.sign(ty - p.gy);
+            } else {
+                if (Input.isDown(up)) dy = -1;
+                if (Input.isDown(down)) dy = 1;
+                if (Input.isDown(left)) dx = -1;
+                if (Input.isDown(right)) dx = 1;
             }
+            if (dx || dy) {
+                const len = Math.hypot(dx, dy) || 1;
+                const step = (p.hunter ? speed * 1.05 : speed * 1.12) / this.cell;
+                const ogx = p.gx;
+                const ogy = p.gy;
+                if (Math.abs(dx) >= Math.abs(dy)) this.tryMove(p, Math.sign(dx), 0);
+                else this.tryMove(p, 0, Math.sign(dy));
+                if (p.gx === ogx && p.gy === ogy) {
+                    if (dx) this.tryMove(p, Math.sign(dx), 0);
+                    if (dy) this.tryMove(p, 0, Math.sign(dy));
+                }
+            }
+        };
 
-            let len = Math.hypot(dx, dy) || 1;
-            p.x += (dx / len) * speed * dt;
-            p.y += (dy / len) * speed * dt;
-
-            p.x = Math.max(40, Math.min(this.width - 40, p.x));
-            p.y = Math.max(40, Math.min(this.height - 40, p.y));
+        movePlayer(this.p1, 'KeyW', 'KeyS', 'KeyA', 'KeyD', false);
+        if (GameManager.isSinglePlayer) {
+            movePlayer(this.p2, '', '', '', '', true);
+        } else {
+            movePlayer(this.p2, 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', false);
         }
 
-        // tag collision
-        let p1 = this.players[0];
-        let p2 = this.players[1];
-        if (Math.hypot(p1.x - p2.x, p1.y - p2.y) < 48) {
-            // swap roles
-            let temp = p1.isHunter;
-            p1.isHunter = p2.isHunter;
-            p2.isHunter = temp;
-
-            // small survival bonus
-            if (p1.isHunter) this.scoreP1 += 0.3;
-            else this.scoreP2 += 0.3;
+        if (this.passCd <= 0 && this.p1.gx === this.p2.gx && this.p1.gy === this.p2.gy) {
+            const taggerWasP2 = this.p2.hunter;
+            this.p1.hunter = !this.p1.hunter;
+            this.p2.hunter = !this.p2.hunter;
+            if (taggerWasP2) {
+                this.scoreP2++;
+                this.tagMsg = GameManager.isSinglePlayer ? 'CPU TAGGED!' : 'P2 TAGGED!';
+            } else {
+                this.scoreP1++;
+                this.tagMsg = 'P1 TAGGED!';
+            }
+            AudioManager.correct();
+            this.tagFlash = 0.6;
+            this.passCd = 0.8;
+            if (this.scoreP1 >= 5) GameManager.gameOver(1);
+            else if (this.scoreP2 >= 5) GameManager.gameOver(2);
         }
     }
 
@@ -78,23 +125,57 @@ class PacTag extends GameBase {
         ctx.fillStyle = Theme.bg;
         ctx.fillRect(0, 0, this.width, this.height);
 
-        // timer
+        ctx.fillStyle = Theme.fg;
+        ctx.font = 'bold 18px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText(`Tags: ${this.scoreP1} — ${this.scoreP2}  (first to 5)`, this.width / 2, 36);
+        ctx.font = '14px Arial';
         ctx.fillStyle = Theme.accent;
-        ctx.font = "bold 32px Bungee";
-        ctx.textAlign = "center";
-        ctx.fillText(Math.ceil(this.timeLeft) + "s", 400, 70);
+        ctx.fillText('Stay on the paths — ghost tags runner to swap roles!', this.width / 2, 58);
 
-        for (let p of this.players) {
-            ctx.fillStyle = p.color;
-            ctx.beginPath();
-            ctx.arc(p.x, p.y, 34, 0, Math.PI * 2);
-            ctx.fill();
-
-            // role indicator
-            ctx.fillStyle = p.isHunter ? "#fff" : Theme.accent;
-            ctx.font = "bold 18px Space Grotesk";
-            ctx.fillText(p.isHunter ? "HUNTER" : "RUNNER", p.x, p.y - 52);
+        for (let y = 0; y < this.rows; y++) {
+            for (let x = 0; x < this.cols; x++) {
+                const px = this.ox + x * this.cell;
+                const py = this.oy + y * this.cell;
+                if (this.maze[y][x] === '#') {
+                    ctx.fillStyle = Theme.fg;
+                    ctx.fillRect(px, py, this.cell, this.cell);
+                } else {
+                    ctx.fillStyle = 'rgba(255,255,255,0.06)';
+                    ctx.fillRect(px + 2, py + 2, this.cell - 4, this.cell - 4);
+                }
+            }
         }
+
+        const drawPac = (p, color, label) => {
+            ctx.fillStyle = color;
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, this.cell * 0.32, 0, Math.PI * 2);
+            ctx.fill();
+            if (p.hunter) {
+                ctx.strokeStyle = Theme.accent;
+                ctx.lineWidth = 3;
+                ctx.stroke();
+            }
+            ctx.fillStyle = Theme.fg;
+            ctx.font = 'bold 10px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText(p.hunter ? 'GHOST' : 'RUN', p.x, p.y - this.cell * 0.45);
+            ctx.fillText(label, p.x, p.y + this.cell * 0.55);
+        };
+
+        drawPac(this.p1, Theme.p1, 'P1');
+        drawPac(this.p2, GameManager.isSinglePlayer ? '#8C52FF' : Theme.p2, GameManager.isSinglePlayer ? 'CPU' : 'P2');
+
+        if (this.tagFlash > 0) {
+            ctx.fillStyle = `rgba(255,230,0,${this.tagFlash})`;
+            ctx.font = 'bold 32px Impact';
+            ctx.fillText(this.tagMsg, this.width / 2, this.height - 40);
+        }
+
+        ctx.fillStyle = Theme.fg;
+        ctx.font = '13px Arial';
+        ctx.fillText('WASD / Arrows — runner is slightly faster', this.width / 2, this.height - 14);
     }
 }
 

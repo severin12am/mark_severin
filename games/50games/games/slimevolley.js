@@ -1,108 +1,135 @@
 class SlimeVolley extends GameBase {
-    constructor() { super("Slime Volley", "Bounce the ball over the net! First to 5."); }
+    constructor() {
+        super("Slime Volley", "Bounce the ball over the net! First to 5.");
+    }
 
     init(w, h) {
         super.init(w, h);
-        this.scoreP1 = this.scoreP1 || 0;
-        this.scoreP2 = this.scoreP2 || 0;
-        this.floorY = this.height - 40;
-        this.net = { x: this.width / 2, y: this.height - 150, w: 10, h: 110 };
-        this.spawn(1);
+        if (this.scoreP1 === undefined) { this.scoreP1 = 0; this.scoreP2 = 0; }
+        this.floorY = this.height - 36;
+        this.net = { x: this.width / 2 - 5, y: this.floorY - 110, w: 10, h: 110 };
+        this.pointFlash = 0;
+        this.serve(server);
     }
 
-    spawn(server) {
-        this.p1 = { x: this.width * 0.25, y: this.floorY, vx: 0, vy: 0, r: 40 };
-        this.p2 = { x: this.width * 0.75, y: this.floorY, vx: 0, vy: 0, r: 40 };
-        this.ball = { 
-            x: server === 1 ? this.p1.x : this.p2.x, 
-            y: this.height * 0.3, 
-            vx: 0, vy: 0, r: 15 
+    serve(server) {
+        this.p1 = { x: this.width * 0.28, y: this.floorY, vx: 0, vy: 0, r: 38, grounded: true };
+        this.p2 = { x: this.width * 0.72, y: this.floorY, vx: 0, vy: 0, r: 38, grounded: true };
+        this.ball = {
+            x: server === 1 ? this.p1.x : this.p2.x,
+            y: this.height * 0.28,
+            vx: server === 1 ? 120 : -120,
+            vy: -80,
+            r: 14
         };
+        this.serveDelay = 0.5;
+    }
+
+    jump(p) {
+        if (p.grounded) {
+            p.vy = -480;
+            p.grounded = false;
+            AudioManager.move();
+        }
     }
 
     update(dt) {
-        let delta = dt > 0.5 ? dt / 1000 : dt;
-        const gravity = 1000, speed = 350, jump = -500;
+        if (this.serveDelay > 0) {
+            this.serveDelay -= dt;
+            return;
+        }
+        if (this.pointFlash > 0) this.pointFlash -= dt;
 
-        // P1 Input
+        const gravity = 980;
+        const speed = 320;
+
         this.p1.vx = 0;
         if (Input.isDown('KeyA')) this.p1.vx = -speed;
         if (Input.isDown('KeyD')) this.p1.vx = speed;
-        if ((Input.isDown('KeyW') || Input.isDown('Space')) && this.p1.y === this.floorY) this.p1.vy = jump;
+        if (Input.isDown('KeyW') || Input.isDown('Space')) this.jump(this.p1);
 
-        // P2 Input / AI
         this.p2.vx = 0;
         if (GameManager.isSinglePlayer) {
-            // AI Logic: chase ball if on its side
-            if (this.ball.x > this.width / 2) {
-                if (Math.abs(this.p2.x - this.ball.x) > 10) this.p2.vx = this.ball.x < this.p2.x ? -speed : speed;
-                if (this.ball.y > this.height - 200 && Math.abs(this.p2.x - this.ball.x) < 50 && this.p2.y === this.floorY) this.p2.vy = jump;
-            } else { // Return to center
-                let targetX = this.width * 0.75;
-                if (Math.abs(this.p2.x - targetX) > 10) this.p2.vx = targetX < this.p2.x ? -speed : speed;
+            if (this.ball.x > this.width / 2 - 20) {
+                const dx = this.ball.x - this.p2.x;
+                if (Math.abs(dx) > 8) this.p2.vx = Math.sign(dx) * speed * 0.88;
+                if (this.ball.y > this.floorY - 130 && Math.abs(dx) < 55) this.jump(this.p2);
+            } else {
+                const home = this.width * 0.72;
+                if (Math.abs(this.p2.x - home) > 8) this.p2.vx = Math.sign(home - this.p2.x) * speed * 0.5;
             }
         } else {
             if (Input.isDown('ArrowLeft')) this.p2.vx = -speed;
             if (Input.isDown('ArrowRight')) this.p2.vx = speed;
-            if ((Input.isDown('ArrowUp') || Input.isDown('Enter')) && this.p2.y === this.floorY) this.p2.vy = jump;
+            if (Input.isDown('ArrowUp') || Input.isDown('Enter')) this.jump(this.p2);
         }
 
-        // Apply Player Physics
-        [this.p1, this.p2].forEach((p, idx) => {
-            p.vy += gravity * delta;
-            p.x += p.vx * delta;
-            p.y += p.vy * delta;
-            if (p.y > this.floorY) { p.y = this.floorY; p.vy = 0; }
-            
-            // Constrain to halves
-            if (idx === 0) {
-                if (p.x < p.r) p.x = p.r;
-                if (p.x > this.net.x - p.r) p.x = this.net.x - p.r;
+        [this.p1, this.p2].forEach((p, i) => {
+            p.vy += gravity * dt;
+            p.x += p.vx * dt;
+            p.y += p.vy * dt;
+            if (p.y >= this.floorY) {
+                p.y = this.floorY;
+                p.vy = 0;
+                p.grounded = true;
+            }
+            if (i === 0) {
+                p.x = Math.max(p.r, Math.min(this.net.x - p.r, p.x));
             } else {
-                if (p.x > this.width - p.r) p.x = this.width - p.r;
-                if (p.x < this.net.x + this.net.w + p.r) p.x = this.net.x + this.net.w + p.r;
+                p.x = Math.max(this.net.x + this.net.w + p.r, Math.min(this.width - p.r, p.x));
             }
         });
 
-        // Ball Physics
-        this.ball.vy += gravity * 0.7 * delta;
-        this.ball.x += this.ball.vx * delta;
-        this.ball.y += this.ball.vy * delta;
+        this.ball.vy += gravity * 0.75 * dt;
+        this.ball.x += this.ball.vx * dt;
+        this.ball.y += this.ball.vy * dt;
 
-        // Ball Constraints
-        if (this.ball.x < this.ball.r) { this.ball.x = this.ball.r; this.ball.vx *= -1; }
-        if (this.ball.x > this.width - this.ball.r) { this.ball.x = this.width - this.ball.r; this.ball.vx *= -1; }
-        
-        // Net Collision
-        if (this.ball.x + this.ball.r > this.net.x && this.ball.x - this.ball.r < this.net.x + this.net.w && this.ball.y + this.ball.r > this.net.y) {
-            this.ball.vx *= -1;
-            this.ball.x += this.ball.vx * delta * 2;
+        if (this.ball.x < this.ball.r) {
+            this.ball.x = this.ball.r;
+            this.ball.vx = Math.abs(this.ball.vx);
+            AudioManager.tick();
+        }
+        if (this.ball.x > this.width - this.ball.r) {
+            this.ball.x = this.width - this.ball.r;
+            this.ball.vx = -Math.abs(this.ball.vx);
+            AudioManager.tick();
         }
 
-        // Player Collision
+        if (this.ball.x + this.ball.r > this.net.x &&
+            this.ball.x - this.ball.r < this.net.x + this.net.w &&
+            this.ball.y + this.ball.r > this.net.y) {
+            this.ball.vx *= -1;
+            this.ball.x += this.ball.vx * dt * 2;
+            AudioManager.tick();
+        }
+
         [this.p1, this.p2].forEach(p => {
-            let dx = this.ball.x - p.x;
-            let dy = this.ball.y - p.y;
-            let dist = Math.sqrt(dx * dx + dy * dy);
-            if (dist < this.ball.r + p.r) {
-                let angle = Math.atan2(dy, dx);
-                let force = 400;
-                this.ball.vx = Math.cos(angle) * force;
-                this.ball.vy = Math.sin(angle) * force - 100; // Extra pop up
-                this.ball.y = p.y - p.r - this.ball.r; // Resolve overlap
+            const dx = this.ball.x - p.x;
+            const dy = this.ball.y - p.y;
+            const dist = Math.hypot(dx, dy);
+            if (dist < this.ball.r + p.r && dist > 0) {
+                const nx = dx / dist;
+                const ny = dy / dist;
+                this.ball.vx = nx * 420;
+                this.ball.vy = ny * 420 - 140;
+                this.ball.y = p.y - p.r - this.ball.r - 1;
+                AudioManager.move();
             }
         });
 
-        // Floor / Scoring
-        if (this.ball.y > this.floorY) {
+        if (this.ball.y > this.floorY + this.ball.r) {
             if (this.ball.x < this.width / 2) {
                 this.scoreP2++;
+                this.pointFlash = 0.5;
+                AudioManager.wrong();
                 if (this.scoreP2 >= 5) GameManager.gameOver(2);
-                else this.spawn(2);
+                else this.serve(2);
             } else {
                 this.scoreP1++;
+                this.pointFlash = 0.5;
+                AudioManager.correct();
                 if (this.scoreP1 >= 5) GameManager.gameOver(1);
-                else this.spawn(1);
+                else this.serve(1);
             }
         }
     }
@@ -111,28 +138,50 @@ class SlimeVolley extends GameBase {
         ctx.fillStyle = Theme.bg;
         ctx.fillRect(0, 0, this.width, this.height);
 
-        // Floor and Net
+        ctx.fillStyle = Theme.fg;
+        ctx.font = 'bold 18px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText(`${this.scoreP1}`, this.width * 0.25, 36);
+        ctx.fillText(`${this.scoreP2}`, this.width * 0.75, 36);
+        ctx.font = '13px Arial';
+        ctx.fillStyle = Theme.accent;
+        ctx.fillText('first to 5', this.width / 2, 36);
+
         ctx.fillStyle = Theme.fg;
         ctx.fillRect(0, this.floorY, this.width, this.height - this.floorY);
+        ctx.fillStyle = Theme.accent;
         ctx.fillRect(this.net.x, this.net.y, this.net.w, this.net.h);
 
-        // P1 Semi-Circle
-        ctx.fillStyle = Theme.p1;
-        ctx.beginPath();
-        ctx.arc(this.p1.x, this.p1.y, this.p1.r, Math.PI, 0);
-        ctx.fill();
+        const drawSlime = (p, color, label) => {
+            ctx.fillStyle = color;
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, p.r, Math.PI, 0);
+            ctx.fill();
+            ctx.fillStyle = Theme.fg;
+            ctx.font = 'bold 10px Arial';
+            ctx.fillText(label, p.x, p.y + 16);
+        };
 
-        // P2 Semi-Circle
-        ctx.fillStyle = Theme.p2;
-        ctx.beginPath();
-        ctx.arc(this.p2.x, this.p2.y, this.p2.r, Math.PI, 0);
-        ctx.fill();
+        drawSlime(this.p1, Theme.p1, 'P1');
+        drawSlime(this.p2, GameManager.isSinglePlayer ? '#8C52FF' : Theme.p2,
+            GameManager.isSinglePlayer ? 'CPU' : 'P2');
 
-        // Ball
-        ctx.fillStyle = Theme.accent;
-        ctx.beginPath();
-        ctx.arc(this.ball.x, this.ball.y, this.ball.r, 0, Math.PI * 2);
-        ctx.fill();
+        if (this.serveDelay <= 0) {
+            ctx.fillStyle = Theme.accent;
+            ctx.beginPath();
+            ctx.arc(this.ball.x, this.ball.y, this.ball.r, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        if (this.pointFlash > 0) {
+            ctx.fillStyle = `rgba(255,255,255,${this.pointFlash * 0.15})`;
+            ctx.fillRect(0, 0, this.width, this.height);
+        }
+
+        ctx.fillStyle = Theme.fg;
+        ctx.font = '13px Arial';
+        ctx.fillText('A/D move · W/SPACE jump  |  ←/→ move · ↑/ENTER jump', this.width / 2, this.height - 12);
     }
 }
+
 GameManager.registerGame(new SlimeVolley());

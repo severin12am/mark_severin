@@ -1,142 +1,184 @@
 class GameAirHockey extends GameBase {
-    constructor() { 
-        super("Air Hockey", "First to 7 goals. WASD vs Arrows to move mallets."); 
+    constructor() {
+        super("Air Hockey", "Smack the puck into the rival goal! First to 7.");
     }
-    
+
     init(w, h) {
         super.init(w, h);
-        this.scoreP1 = 0;
-        this.scoreP2 = 0;
-        
-        this.goalW = 160;
-        this.friction = 0.99; 
-        
-        this.puck = { x: w/2, y: h/2, vx: 0, vy: 0, r: 15 };
-        this.malletP1 = { x: 50, y: h/2, r: 35, color: Theme.p1 };
-        this.malletP2 = { x: w-50, y: h/2, r: 35, color: Theme.p2 };
+        if (this.scoreP1 === undefined) { this.scoreP1 = 0; this.scoreP2 = 0; }
+        this.goalW = 150;
+        this.friction = 0.992;
+        this.goalFlash = 0;
+        this.resetPuck();
     }
 
-    resetPuck(scorer) {
-        this.puck.x = this.width / 2;
-        this.puck.y = this.height / 2;
-        this.puck.vx = 0;
-        this.puck.vy = 0;
-        
-        // Reset mallets
-        this.malletP1.x = 100; this.malletP1.y = this.height / 2;
-        this.malletP2.x = this.width - 100; this.malletP2.y = this.height / 2;
+    resetPuck() {
+        this.puck = { x: this.width / 2, y: this.height / 2, vx: 0, vy: 0, r: 14 };
+        this.m1 = { x: 110, y: this.height / 2, r: 32 };
+        this.m2 = { x: this.width - 110, y: this.height / 2, r: 32 };
+        this.serveDelay = 0.6;
+    }
 
-        if (this.scoreP1 >= 7 || this.scoreP2 >= 7) {
-            GameManager.gameOver(this.scoreP1 >= 7 ? 1 : 2);
-        }
+    clampMallet(m, minX, maxX) {
+        m.x = Math.max(minX + m.r, Math.min(maxX - m.r, m.x));
+        m.y = Math.max(m.r + 60, Math.min(this.height - m.r - 20, m.y));
+    }
+
+    hitMallet(m, color) {
+        const dx = this.puck.x - m.x;
+        const dy = this.puck.y - m.y;
+        const dist = Math.hypot(dx, dy);
+        if (dist >= this.puck.r + m.r) return;
+        const nx = dx / dist;
+        const ny = dy / dist;
+        const overlap = this.puck.r + m.r - dist;
+        this.puck.x += nx * overlap;
+        this.puck.y += ny * overlap;
+        const dot = this.puck.vx * nx + this.puck.vy * ny;
+        this.puck.vx -= 2 * dot * nx;
+        this.puck.vy -= 2 * dot * ny;
+        this.puck.vx += nx * 340;
+        this.puck.vy += ny * 340;
+        AudioManager.move();
     }
 
     update(dt) {
-        const speed = 400 * dt;
+        if (this.serveDelay > 0) {
+            this.serveDelay -= dt;
+            return;
+        }
+        if (this.goalFlash > 0) this.goalFlash -= dt;
 
-        // P1 Movement (Restricted to left half)
-        if (Input.isDown('KeyW')) this.malletP1.y -= speed;
-        if (Input.isDown('KeyS')) this.malletP1.y += speed;
-        if (Input.isDown('KeyA')) this.malletP1.x -= speed;
-        if (Input.isDown('KeyD')) this.malletP1.x += speed;
+        const speed = 420 * dt;
+        if (Input.isDown('KeyW')) this.m1.y -= speed;
+        if (Input.isDown('KeyS')) this.m1.y += speed;
+        if (Input.isDown('KeyA')) this.m1.x -= speed;
+        if (Input.isDown('KeyD')) this.m1.x += speed;
 
-        // P2 Movement (Restricted to right half)
-        if (Input.isDown('ArrowUp')) this.malletP2.y -= speed;
-        if (Input.isDown('ArrowDown')) this.malletP2.y += speed;
-        if (Input.isDown('ArrowLeft')) this.malletP2.x -= speed;
-        if (Input.isDown('ArrowRight')) this.malletP2.x += speed;
+        if (GameManager.isSinglePlayer) {
+            const px = this.puck.x;
+            const py = this.puck.y;
+            if (px > this.width / 2) {
+                const tx = Math.max(this.width / 2 + 40, px - 20);
+                const ty = py;
+                const dx = tx - this.m2.x, dy = ty - this.m2.y;
+                this.m2.x += Math.sign(dx) * Math.min(Math.abs(dx), speed * 0.9);
+                this.m2.y += Math.sign(dy) * Math.min(Math.abs(dy), speed * 0.9);
+            } else {
+                const home = { x: this.width * 0.75, y: this.height / 2 };
+                this.m2.x += Math.sign(home.x - this.m2.x) * Math.min(Math.abs(home.x - this.m2.x), speed * 0.5);
+                this.m2.y += Math.sign(home.y - this.m2.y) * Math.min(Math.abs(home.y - this.m2.y), speed * 0.5);
+            }
+        } else {
+            if (Input.isDown('ArrowUp')) this.m2.y -= speed;
+            if (Input.isDown('ArrowDown')) this.m2.y += speed;
+            if (Input.isDown('ArrowLeft')) this.m2.x -= speed;
+            if (Input.isDown('ArrowRight')) this.m2.x += speed;
+        }
 
-        // Clamp Mallets
-        const clamp = (m, minX, maxX) => {
-            m.x = Math.max(minX + m.r, Math.min(maxX - m.r, m.x));
-            m.y = Math.max(m.r, Math.min(this.height - m.r, m.y));
-        };
-        clamp(this.malletP1, 0, this.width / 2 - 5);
-        clamp(this.malletP2, this.width / 2 + 5, this.width);
+        this.clampMallet(this.m1, 0, this.width / 2 - 8);
+        this.clampMallet(this.m2, this.width / 2 + 8, this.width);
 
-        // Puck Physics
         this.puck.vx *= this.friction;
         this.puck.vy *= this.friction;
         this.puck.x += this.puck.vx * dt;
         this.puck.y += this.puck.vy * dt;
 
-        // Top/Bottom Walls
-        if (this.puck.y < this.puck.r) { this.puck.y = this.puck.r; this.puck.vy *= -1; }
-        if (this.puck.y > this.height - this.puck.r) { this.puck.y = this.height - this.puck.r; this.puck.vy *= -1; }
+        const gyTop = this.height / 2 - this.goalW / 2;
+        const gyBot = this.height / 2 + this.goalW / 2;
 
-        // Left/Right Walls & Goals
-        let gyTop = this.height / 2 - this.goalW / 2;
-        let gyBot = this.height / 2 + this.goalW / 2;
+        if (this.puck.y < this.puck.r + 60) {
+            this.puck.y = this.puck.r + 60;
+            this.puck.vy = Math.abs(this.puck.vy);
+            AudioManager.tick();
+        }
+        if (this.puck.y > this.height - this.puck.r - 20) {
+            this.puck.y = this.height - this.puck.r - 20;
+            this.puck.vy = -Math.abs(this.puck.vy);
+            AudioManager.tick();
+        }
 
         if (this.puck.x < this.puck.r) {
             if (this.puck.y > gyTop && this.puck.y < gyBot) {
-                this.scoreP2++; this.resetPuck(2); return;
-            } else {
-                this.puck.x = this.puck.r; this.puck.vx *= -1;
+                this.scoreP2++;
+                this.goalFlash = 0.5;
+                AudioManager.wrong();
+                if (this.scoreP2 >= 7) GameManager.gameOver(2);
+                else this.resetPuck();
+                return;
             }
+            this.puck.x = this.puck.r;
+            this.puck.vx = Math.abs(this.puck.vx);
         } else if (this.puck.x > this.width - this.puck.r) {
             if (this.puck.y > gyTop && this.puck.y < gyBot) {
-                this.scoreP1++; this.resetPuck(1); return;
-            } else {
-                this.puck.x = this.width - this.puck.r; this.puck.vx *= -1;
+                this.scoreP1++;
+                this.goalFlash = 0.5;
+                AudioManager.correct();
+                if (this.scoreP1 >= 7) GameManager.gameOver(1);
+                else this.resetPuck();
+                return;
             }
+            this.puck.x = this.width - this.puck.r;
+            this.puck.vx = -Math.abs(this.puck.vx);
         }
 
-        // Collisions
-        this.checkMalletCollision(this.malletP1);
-        this.checkMalletCollision(this.malletP2);
-    }
-
-    checkMalletCollision(m) {
-        let dx = this.puck.x - m.x;
-        let dy = this.puck.y - m.y;
-        let dist = Math.sqrt(dx*dx + dy*dy);
-        
-        if (dist < this.puck.r + m.r) {
-            let nx = dx / dist;
-            let ny = dy / dist;
-            
-            // Push out of overlap
-            let overlap = (this.puck.r + m.r) - dist;
-            this.puck.x += nx * overlap;
-            this.puck.y += ny * overlap;
-
-            // Bounce calculation
-            let dot = this.puck.vx * nx + this.puck.vy * ny;
-            this.puck.vx -= 2 * dot * nx;
-            this.puck.vy -= 2 * dot * ny;
-
-            // Add hit impulse
-            this.puck.vx += nx * 300;
-            this.puck.vy += ny * 300;
-        }
+        this.hitMallet(this.m1, Theme.p1);
+        this.hitMallet(this.m2, GameManager.isSinglePlayer ? '#8C52FF' : Theme.p2);
     }
 
     render(ctx) {
-        // Table Lines
+        ctx.fillStyle = '#0a2840';
+        ctx.fillRect(0, 0, this.width, this.height);
+
         ctx.strokeStyle = Theme.accent;
         ctx.lineWidth = 3;
         ctx.beginPath();
-        ctx.moveTo(this.width/2, 0); ctx.lineTo(this.width/2, this.height);
+        ctx.moveTo(this.width / 2, 60);
+        ctx.lineTo(this.width / 2, this.height - 20);
         ctx.stroke();
-        
-        ctx.beginPath(); ctx.arc(this.width/2, this.height/2, 80, 0, Math.PI*2); ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(this.width / 2, this.height / 2, 70, 0, Math.PI * 2);
+        ctx.stroke();
 
-        // Goals
-        let gy = this.height/2 - this.goalW/2;
-        ctx.fillStyle = Theme.p2; ctx.fillRect(0, gy, 10, this.goalW); // P1 goal (p2 scores here)
-        ctx.fillStyle = Theme.p1; ctx.fillRect(this.width-10, gy, 10, this.goalW); // P2 goal
+        const gy = this.height / 2 - this.goalW / 2;
+        ctx.fillStyle = Theme.p2;
+        ctx.fillRect(0, gy, 12, this.goalW);
+        ctx.fillStyle = Theme.p1;
+        ctx.fillRect(this.width - 12, gy, 12, this.goalW);
 
-        // Mallets
-        ctx.fillStyle = this.malletP1.color;
-        ctx.beginPath(); ctx.arc(this.malletP1.x, this.malletP1.y, this.malletP1.r, 0, Math.PI*2); ctx.fill();
-        
-        ctx.fillStyle = this.malletP2.color;
-        ctx.beginPath(); ctx.arc(this.malletP2.x, this.malletP2.y, this.malletP2.r, 0, Math.PI*2); ctx.fill();
-
-        // Puck
         ctx.fillStyle = Theme.fg;
-        ctx.beginPath(); ctx.arc(this.puck.x, this.puck.y, this.puck.r, 0, Math.PI*2); ctx.fill();
+        ctx.font = 'bold 20px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText(`${this.scoreP1}`, this.width * 0.25, 40);
+        ctx.fillText(`${this.scoreP2}`, this.width * 0.75, 40);
+        ctx.font = '13px Arial';
+        ctx.fillStyle = Theme.accent;
+        ctx.fillText('first to 7', this.width / 2, 40);
+
+        ctx.fillStyle = Theme.p1;
+        ctx.beginPath();
+        ctx.arc(this.m1.x, this.m1.y, this.m1.r, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = GameManager.isSinglePlayer ? '#8C52FF' : Theme.p2;
+        ctx.beginPath();
+        ctx.arc(this.m2.x, this.m2.y, this.m2.r, 0, Math.PI * 2);
+        ctx.fill();
+
+        if (this.serveDelay <= 0) {
+            ctx.fillStyle = Theme.fg;
+            ctx.beginPath();
+            ctx.arc(this.puck.x, this.puck.y, this.puck.r, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        if (this.goalFlash > 0) {
+            ctx.fillStyle = `rgba(255,255,255,${this.goalFlash * 0.2})`;
+            ctx.fillRect(0, 0, this.width, this.height);
+        }
+
+        ctx.fillStyle = Theme.fg;
+        ctx.font = '13px Arial';
+        ctx.fillText('WASD mallet (left half) · Arrows mallet (right half)', this.width / 2, this.height - 12);
     }
 }
 

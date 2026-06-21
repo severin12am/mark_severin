@@ -1,155 +1,212 @@
 class SokobanCrush extends GameBase {
     constructor() {
-        super("Sokoban Crush", "Push ice blocks to crush your opponent.");
+        super("Sokoban Crush", "Push ice blocks onto your rival! First to 3 crushes.");
     }
 
     init(w, h) {
         super.init(w, h);
-        this.resetRound();
+        if (this.scoreP1 === undefined) { this.scoreP1 = 0; this.scoreP2 = 0; }
+        this.keys = {};
+        this.startRound();
     }
 
-    resetRound() {
+    justPressed(code) {
+        const down = Input.isDown(code);
+        const was = this.keys[code];
+        this.keys[code] = down;
+        return down && !was;
+    }
+
+    startRound() {
         this.grid = 11;
-        this.cell = Math.min(this.width / (this.grid + 2), this.height / (this.grid + 2));
+        this.cell = Math.min(44, (this.width - 120) / this.grid);
         this.ox = (this.width - this.grid * this.cell) / 2;
-        this.oy = (this.height - this.grid * this.cell) / 2;
+        this.oy = 88;
 
-        this.tiles = Array(this.grid).fill().map(()=>Array(this.grid).fill(0)); // 0 empty, 1 wall, 2 box
-
-        // Outer walls
-        for (let i=0; i<this.grid; i++) {
-            this.tiles[0][i] = 1;
-            this.tiles[this.grid-1][i] = 1;
-            this.tiles[i][0] = 1;
-            this.tiles[i][this.grid-1] = 1;
-        }
-
-        // Some inner walls & boxes
-        for (let i=0; i<14; i++) {
-            let x = 2 + Math.floor(Math.random()*(this.grid-4));
-            let y = 2 + Math.floor(Math.random()*(this.grid-4));
-            this.tiles[y][x] = 1;
-        }
-        for (let i=0; i<6; i++) {
-            let x = 2 + Math.floor(Math.random()*(this.grid-4));
-            let y = 2 + Math.floor(Math.random()*(this.grid-4));
-            if (this.tiles[y][x] === 0) this.tiles[y][x] = 2;
-        }
-
-        this.p1 = {x: 2, y: Math.floor(this.grid/2)};
-        this.p2 = {x: this.grid-3, y: Math.floor(this.grid/2)};
-    }
-
-    update(dt) {
-        // Player 1
-        let dx1=0, dy1=0;
-        if (Input.isJustPressed('KeyW')) dy1 = -1;
-        if (Input.isJustPressed('KeyS')) dy1 = 1;
-        if (Input.isJustPressed('KeyA')) dx1 = -1;
-        if (Input.isJustPressed('KeyD')) dx1 = 1;
-        if (dx1 || dy1) this.tryPush(1, dx1, dy1);
-
-        // Player 2 or CPU
-        let dx2=0, dy2=0;
-        if (GameManager.isSinglePlayer) {
-            // Simple AI: move toward player 1, push if possible
-            if (Math.abs(this.p1.x - this.p2.x) > Math.abs(this.p1.y - this.p2.y)) {
-                dx2 = Math.sign(this.p1.x - this.p2.x);
-            } else {
-                dy2 = Math.sign(this.p1.y - this.p2.y);
+        this.tiles = Array(this.grid).fill().map(() => Array(this.grid).fill(0));
+        const layout = [
+            '###########',
+            '#....#....#',
+            '#..B.....B#',
+            '#...###...#',
+            '#....#....#',
+            '#..B..#..B#',
+            '#....#....#',
+            '#...###...#',
+            '#..B.....B#',
+            '#....#....#',
+            '###########'
+        ];
+        for (let y = 0; y < this.grid; y++) {
+            for (let x = 0; x < this.grid; x++) {
+                const ch = layout[y][x];
+                if (ch === '#') this.tiles[y][x] = 1;
+                else if (ch === 'B') this.tiles[y][x] = 2;
             }
-            if (Math.random() < 0.2) { dx2 = Math.sign(Math.random()-0.5); dy2 = 0; }
-            if (Math.random() < 0.2) { dy2 = Math.sign(Math.random()-0.5); dx2 = 0; }
-        } else {
-            if (Input.isJustPressed('ArrowUp'))    dy2 = -1;
-            if (Input.isJustPressed('ArrowDown'))  dy2 = 1;
-            if (Input.isJustPressed('ArrowLeft'))  dx2 = -1;
-            if (Input.isJustPressed('ArrowRight')) dx2 = 1;
         }
-        if (dx2 || dy2) this.tryPush(2, dx2, dy2);
 
-        // Check crush
-        if (this.p1.x === this.p2.x && this.p1.y === this.p2.y) {
-            GameManager.gameOver(0); // draw on collision (rare)
-        }
+        this.p1 = { x: 2, y: 2 };
+        this.p2 = { x: 8, y: 8 };
+        this.pushFlash = 0;
+        this.roundMsg = '';
+        this.roundPause = 0;
     }
 
-    tryPush(player, dx, dy) {
-        const p = player===1 ? this.p1 : this.p2;
+    tryMove(player, dx, dy) {
+        const p = player === 1 ? this.p1 : this.p2;
+        const opp = player === 1 ? this.p2 : this.p1;
         const nx = p.x + dx;
         const ny = p.y + dy;
 
-        if (nx<1 || nx>=this.grid-1 || ny<1 || ny>=this.grid-1) return;
-        if (this.tiles[ny][nx] === 1) return; // wall
+        if (nx < 1 || nx >= this.grid - 1 || ny < 1 || ny >= this.grid - 1) return;
+        if (this.tiles[ny][nx] === 1) return;
 
-        if (this.tiles[ny][nx] === 2) { // box
+        if (this.tiles[ny][nx] === 2) {
             const bx = nx + dx;
             const by = ny + dy;
-            if (bx<1 || bx>=this.grid-1 || by<1 || by>=this.grid-1) return;
-            if (this.tiles[by][bx] !== 0) return; // blocked
-
-            // push box
+            if (bx < 1 || bx >= this.grid - 1 || by < 1 || by >= this.grid - 1) return;
+            if (this.tiles[by][bx] !== 0) return;
+            if (opp.x === bx && opp.y === by) {
+                if (player === 1) {
+                    this.scoreP1++;
+                    this.roundMsg = 'P1 CRUSHED!';
+                } else {
+                    this.scoreP2++;
+                    this.roundMsg = GameManager.isSinglePlayer ? 'CPU CRUSHED!' : 'P2 CRUSHED!';
+                }
+                AudioManager.correct();
+                this.pushFlash = 0.5;
+                this.roundPause = 1.2;
+                return;
+            }
             this.tiles[by][bx] = 2;
             this.tiles[ny][nx] = 0;
+            this.pushFlash = 0.2;
+            AudioManager.tick();
         }
 
-        // move player
-        if (player===1) {
-            this.p1.x = nx;
-            this.p1.y = ny;
+        p.x = nx;
+        p.y = ny;
+        AudioManager.move();
+    }
+
+    cpuMove() {
+        const dx = Math.sign(this.p1.x - this.p2.x);
+        const dy = Math.sign(this.p1.y - this.p2.y);
+        const moves = [];
+        if (dx !== 0) moves.push([dx, 0]);
+        if (dy !== 0) moves.push([0, dy]);
+        moves.push([0, dx !== 0 ? 0 : (Math.random() < 0.5 ? -1 : 1)]);
+        for (const [mx, my] of moves) {
+            if (mx || my) {
+                this.tryMove(2, mx, my);
+                return;
+            }
+        }
+    }
+
+    update(dt) {
+        if (this.roundPause > 0) {
+            this.roundPause -= dt;
+            if (this.pushFlash > 0) this.pushFlash -= dt;
+            if (this.roundPause <= 0) {
+                if (this.scoreP1 >= 3 || this.scoreP2 >= 3) {
+                    GameManager.gameOver(this.scoreP1 >= 3 ? 1 : 2);
+                } else {
+                    this.startRound();
+                }
+            }
+            return;
+        }
+
+        if (this.justPressed('KeyW')) this.tryMove(1, 0, -1);
+        else if (this.justPressed('KeyS')) this.tryMove(1, 0, 1);
+        else if (this.justPressed('KeyA')) this.tryMove(1, -1, 0);
+        else if (this.justPressed('KeyD')) this.tryMove(1, 1, 0);
+
+        if (GameManager.isSinglePlayer) {
+            this.cpuTimer = (this.cpuTimer || 0) - dt;
+            if (this.cpuTimer <= 0) {
+                this.cpuMove();
+                this.cpuTimer = 0.22 + Math.random() * 0.18;
+            }
         } else {
-            this.p2.x = nx;
-            this.p2.y = ny;
-        }
-
-        // Check if opponent is crushed by box
-        if (player===1 && this.p2.x === nx && this.p2.y === ny) {
-            GameManager.gameOver(1);
-        }
-        if (player===2 && this.p1.x === nx && this.p1.y === ny) {
-            GameManager.gameOver(2);
+            if (this.justPressed('ArrowUp')) this.tryMove(2, 0, -1);
+            else if (this.justPressed('ArrowDown')) this.tryMove(2, 0, 1);
+            else if (this.justPressed('ArrowLeft')) this.tryMove(2, -1, 0);
+            else if (this.justPressed('ArrowRight')) this.tryMove(2, 1, 0);
         }
     }
 
     render(ctx) {
+        ctx.fillStyle = Theme.bg;
+        ctx.fillRect(0, 0, this.width, this.height);
+
         const cell = this.cell;
         const ox = this.ox;
         const oy = this.oy;
 
-        // Tiles
-        for (let y=0; y<this.grid; y++) {
-            for (let x=0; x<this.grid; x++) {
-                const tx = ox + x*cell;
-                const ty = oy + y*cell;
+        ctx.fillStyle = Theme.fg;
+        ctx.font = 'bold 18px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText(`Crushes: ${this.scoreP1} — ${this.scoreP2}  (first to 3)`, this.width / 2, 36);
+        ctx.font = '14px Arial';
+        ctx.fillStyle = Theme.accent;
+        ctx.fillText('One step per key press — push a block onto your rival!', this.width / 2, 58);
 
-                if (this.tiles[y][x] === 1) {
+        for (let y = 0; y < this.grid; y++) {
+            for (let x = 0; x < this.grid; x++) {
+                const px = ox + x * cell;
+                const py = oy + y * cell;
+                const t = this.tiles[y][x];
+                if (t === 1) {
                     ctx.fillStyle = Theme.fg;
-                    ctx.fillRect(tx, ty, cell, cell);
-                } else if (this.tiles[y][x] === 2) {
-                    ctx.fillStyle = "#a0d0ff";
-                    ctx.fillRect(tx+4, ty+4, cell-8, cell-8);
+                    ctx.fillRect(px, py, cell, cell);
+                } else {
+                    ctx.fillStyle = (x + y) % 2 === 0 ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.12)';
+                    ctx.fillRect(px + 1, py + 1, cell - 2, cell - 2);
+                }
+                if (t === 2) {
+                    ctx.fillStyle = 'rgba(0,229,155,0.35)';
+                    ctx.fillRect(px + 5, py + 5, cell - 10, cell - 10);
                     ctx.strokeStyle = Theme.accent;
                     ctx.lineWidth = 3;
-                    ctx.strokeRect(tx+4, ty+4, cell-8, cell-8);
-                } else {
-                    ctx.strokeStyle = Theme.fg;
-                    ctx.lineWidth = 1;
-                    ctx.strokeRect(tx, ty, cell, cell);
+                    ctx.strokeRect(px + 5, py + 5, cell - 10, cell - 10);
                 }
             }
         }
 
-        // Players
-        ctx.fillStyle = Theme.p1;
-        ctx.fillRect(ox + this.p1.x*cell + 6, oy + this.p1.y*cell + 6, cell-12, cell-12);
+        const drawPlayer = (p, color, label) => {
+            const px = ox + p.x * cell + 6;
+            const py = oy + p.y * cell + 6;
+            ctx.fillStyle = color;
+            ctx.fillRect(px, py, cell - 12, cell - 12);
+            ctx.fillStyle = Theme.fg;
+            ctx.font = 'bold 10px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText(label, px + (cell - 12) / 2, py + cell - 16);
+        };
 
-        ctx.fillStyle = Theme.p2;
-        ctx.fillRect(ox + this.p2.x*cell + 6, oy + this.p2.y*cell + 6, cell-12, cell-12);
+        drawPlayer(this.p1, Theme.p1, 'P1');
+        drawPlayer(this.p2, GameManager.isSinglePlayer ? '#8C52FF' : Theme.p2, GameManager.isSinglePlayer ? 'CPU' : 'P2');
+
+        if (this.pushFlash > 0) {
+            ctx.fillStyle = `rgba(255,230,0,${this.pushFlash})`;
+            ctx.fillRect(0, 0, this.width, this.height);
+        }
+
+        if (this.roundPause > 0 && this.roundMsg) {
+            ctx.fillStyle = 'rgba(0,0,0,0.55)';
+            ctx.fillRect(0, 0, this.width, this.height);
+            ctx.fillStyle = Theme.accent;
+            ctx.font = 'bold 36px Impact';
+            ctx.textAlign = 'center';
+            ctx.fillText(this.roundMsg, this.width / 2, this.height / 2);
+        }
 
         ctx.fillStyle = Theme.fg;
-        ctx.font = "20px monospace";
-        ctx.textAlign = "center";
-        ctx.fillText("Push blocks → crush opponent", this.width/2, this.height - 30);
+        ctx.font = '14px Arial';
+        ctx.fillText('WASD / Arrow keys — one tile per press', this.width / 2, this.height - 14);
     }
 }
 

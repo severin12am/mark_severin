@@ -2,9 +2,10 @@
 from __future__ import annotations
 
 import http.server
+import os
 import socketserver
 
-PORT = 3456
+PORT = int(os.environ.get("PORT", "3456"))
 
 
 class Handler(http.server.SimpleHTTPRequestHandler):
@@ -26,8 +27,14 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         super().end_headers()
 
 
+class ReusableTCPServer(socketserver.TCPServer):
+    allow_reuse_address = True
+
+
 if __name__ == "__main__":
-    with socketserver.TCPServer(("", PORT), Handler) as httpd:
+    os.chdir(os.path.dirname(os.path.abspath(__file__)))
+    with ReusableTCPServer(("", PORT), Handler) as httpd:
         print(f"Serving portfolio at http://localhost:{PORT}")
+        print("Unity .br files are served with Content-Encoding: br")
         print("Press Ctrl+C to stop.")
         httpd.serve_forever()

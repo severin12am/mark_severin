@@ -1,88 +1,182 @@
 class Darts extends GameBase {
-    constructor() { super("Darts", "Stop your crosshair on the center. First to 500 points."); }
+    constructor() {
+        super("Darts", "Lock horizontal, then vertical aim! First to 150.");
+    }
+
     init(w, h) {
         super.init(w, h);
         if (this.scoreP1 === undefined) { this.scoreP1 = 0; this.scoreP2 = 0; }
-        this.cx1 = w / 4; this.cy1 = h / 2;
-        this.cx2 = w * 0.75; this.cy2 = h / 2;
-        this.time = 0;
-        this.cd1 = 0; this.cd2 = 0;
-        this.darts1 = []; this.darts2 =[];
+        this.keys = {};
+        this.resetTurns();
     }
-    update(dt) {
-        this.time += 0.05;
-        
-        // Moving crosshairs (Lissajous curves)
-        let tx1 = this.cx1 + Math.sin(this.time * 0.8) * 100 + Math.cos(this.time * 1.5) * 50;
-        let ty1 = this.cy1 + Math.cos(this.time * 1.1) * 100 + Math.sin(this.time * 0.7) * 50;
-        
-        let tx2 = this.cx2 + Math.sin(this.time * 0.9) * 100 + Math.cos(this.time * 1.4) * 50;
-        let ty2 = this.cy2 + Math.cos(this.time * 1.2) * 100 + Math.sin(this.time * 0.6) * 50;
 
-        if (this.cd1 > 0) this.cd1--;
-        if (this.cd2 > 0) this.cd2--;
+    justPressed(code) {
+        const down = Input.isDown(code);
+        const was = this.keys[code];
+        this.keys[code] = down;
+        return down && !was;
+    }
 
-        // Throwing Logic
-        let calcScore = (cx, cy, tx, ty) => {
-            let dist = Math.hypot(cx - tx, cy - ty);
-            if (dist < 10) return 50; // Bullseye
-            if (dist < 40) return 25;
-            if (dist < 80) return 10;
-            return 0;
-        };
+    resetTurns() {
+        this.p1 = { cx: this.width * 0.28, cy: this.height * 0.48, phase: 'h', hPos: 0, vPos: 0, darts: [] };
+        this.p2 = { cx: this.width * 0.72, cy: this.height * 0.48, phase: 'h', hPos: 0, vPos: 0, darts: [] };
+        this.time = 0;
+        this.turn = 1;
+        this.popup = null;
+    }
 
-        if (Input.isDown('Space') && this.cd1 <= 0) {
-            this.darts1.push({x: tx1, y: ty1});
-            this.scoreP1 += calcScore(this.cx1, this.cy1, tx1, ty1);
-            this.cd1 = 60;
-        }
+    scoreAt(board, x, y) {
+        const dist = Math.hypot(board.cx - x, board.cy - y);
+        if (dist < 12) return 50;
+        if (dist < 35) return 25;
+        if (dist < 70) return 10;
+        return 0;
+    }
 
-        if (GameManager.isSinglePlayer) {
-            let dist = Math.hypot(this.cx2 - tx2, this.cy2 - ty2);
-            if (dist < 15 && this.cd2 <= 0 && Math.random() < 0.1) {
-                this.darts2.push({x: tx2, y: ty2});
-                this.scoreP2 += calcScore(this.cx2, this.cy2, tx2, ty2);
-                this.cd2 = 60;
+    throwDart(player) {
+        const board = player === 1 ? this.p1 : this.p2;
+        const hx = board.cx + Math.sin(board.hPos) * 95;
+        const vy = board.cy + Math.cos(board.vPos) * 95;
+        const pts = this.scoreAt(board, hx, vy);
+        board.darts.push({ x: hx, y: vy, pts });
+        if (player === 1) this.scoreP1 += pts;
+        else this.scoreP2 += pts;
+        this.popup = { x: hx, y: vy - 20, text: pts > 0 ? `+${pts}` : 'MISS', life: 0.8, player };
+        if (pts >= 25) AudioManager.correct();
+        else if (pts > 0) AudioManager.tick();
+        else AudioManager.wrong();
+        board.phase = 'h';
+        board.hPos = 0;
+        board.vPos = 0;
+        this.turn = 3 - this.turn;
+        if (this.scoreP1 >= 150) GameManager.gameOver(1);
+        if (this.scoreP2 >= 150) GameManager.gameOver(2);
+    }
+
+    updatePlayer(board, fireKey, isCpu, dt) {
+        if (this.turn !== (board === this.p1 ? 1 : 2)) return;
+
+        if (board.phase === 'h') {
+            board.hPos += 0.055;
+            if (isCpu) {
+                this.cpuTimer = (this.cpuTimer || 0) - dt;
+                if (this.cpuTimer <= 0 && Math.abs(Math.sin(board.hPos)) < 0.15) {
+                    board.phase = 'v';
+                    this.cpuTimer = 0.35;
+                }
+            } else if (this.justPressed(fireKey)) {
+                board.phase = 'v';
+                AudioManager.move();
             }
         } else {
-            if (Input.isDown('Enter') && this.cd2 <= 0) {
-                this.darts2.push({x: tx2, y: ty2});
-                this.scoreP2 += calcScore(this.cx2, this.cy2, tx2, ty2);
-                this.cd2 = 60;
+            board.vPos += 0.06;
+            if (isCpu) {
+                this.cpuTimer -= dt;
+                if (this.cpuTimer <= 0 && Math.abs(Math.cos(board.vPos)) < 0.12) {
+                    this.throwDart(board === this.p1 ? 1 : 2);
+                    this.cpuTimer = 0.45;
+                }
+            } else if (this.justPressed(fireKey)) {
+                this.throwDart(board === this.p1 ? 1 : 2);
             }
         }
-
-        if (this.scoreP1 >= 500) GameManager.gameOver(1);
-        if (this.scoreP2 >= 500) GameManager.gameOver(2);
     }
+
+    update(dt) {
+        this.time += dt;
+        if (this.popup) {
+            this.popup.life -= dt;
+            if (this.popup.life <= 0) this.popup = null;
+        }
+
+        this.updatePlayer(this.p1, 'Space', false, dt);
+        this.updatePlayer(this.p2, 'Enter', GameManager.isSinglePlayer, dt);
+    }
+
+    drawBoard(ctx, board, color, label) {
+        const { cx, cy } = board;
+
+        ctx.strokeStyle = Theme.fg;
+        ctx.lineWidth = 2;
+        [78, 52, 28].forEach(r => {
+            ctx.beginPath();
+            ctx.arc(cx, cy, r, 0, Math.PI * 2);
+            ctx.stroke();
+        });
+        ctx.fillStyle = Theme.accent;
+        ctx.beginPath();
+        ctx.arc(cx, cy, 10, 0, Math.PI * 2);
+        ctx.fill();
+
+        board.darts.forEach(d => {
+            ctx.fillStyle = color;
+            ctx.beginPath();
+            ctx.arc(d.x, d.y, 4, 0, Math.PI * 2);
+            ctx.fill();
+        });
+
+        const hx = cx + Math.sin(board.hPos) * 95;
+        const vy = cy + Math.cos(board.vPos) * 95;
+
+        if (board.phase === 'h' || board.phase === 'v') {
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 2;
+            ctx.setLineDash([6, 4]);
+            if (board.phase === 'h') {
+                ctx.beginPath();
+                ctx.moveTo(cx - 100, cy);
+                ctx.lineTo(cx + 100, cy);
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.arc(hx, cy, 14, 0, Math.PI * 2);
+                ctx.stroke();
+            } else {
+                ctx.beginPath();
+                ctx.moveTo(hx, cy - 100);
+                ctx.lineTo(hx, cy + 100);
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.arc(hx, vy, 14, 0, Math.PI * 2);
+                ctx.stroke();
+            }
+            ctx.setLineDash([]);
+        }
+
+        ctx.fillStyle = Theme.fg;
+        ctx.font = 'bold 12px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText(label, cx, cy + 105);
+    }
+
     render(ctx) {
-        ctx.fillStyle = Theme.bg; ctx.fillRect(0, 0, this.width, this.height);
-        
-        let drawBoard = (cx, cy) => {
-            ctx.fillStyle = Theme.fg; ctx.beginPath(); ctx.arc(cx, cy, 80, 0, Math.PI*2); ctx.fill();
-            ctx.fillStyle = Theme.bg; ctx.beginPath(); ctx.arc(cx, cy, 40, 0, Math.PI*2); ctx.fill();
-            ctx.fillStyle = Theme.accent; ctx.beginPath(); ctx.arc(cx, cy, 10, 0, Math.PI*2); ctx.fill();
-        };
+        ctx.fillStyle = Theme.bg;
+        ctx.fillRect(0, 0, this.width, this.height);
 
-        drawBoard(this.cx1, this.cy1);
-        drawBoard(this.cx2, this.cy2);
+        ctx.fillStyle = Theme.fg;
+        ctx.font = 'bold 18px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText(`${this.scoreP1}  —  ${this.scoreP2}   (first to 150)`, this.width / 2, 32);
+        ctx.font = '14px Arial';
+        ctx.fillStyle = Theme.accent;
+        ctx.fillText('Tap SPACE / ENTER twice — lock horizontal aim, then vertical', this.width / 2, 54);
 
-        // Previous darts
-        ctx.fillStyle = Theme.p1;
-        this.darts1.forEach(d => { ctx.beginPath(); ctx.arc(d.x, d.y, 4, 0, Math.PI*2); ctx.fill(); });
-        ctx.fillStyle = Theme.p2;
-        this.darts2.forEach(d => { ctx.beginPath(); ctx.arc(d.x, d.y, 4, 0, Math.PI*2); ctx.fill(); });
+        this.drawBoard(ctx, this.p1, Theme.p1, this.turn === 1 ? 'P1 THROW' : 'P1');
+        this.drawBoard(ctx, this.p2, GameManager.isSinglePlayer ? '#8C52FF' : Theme.p2,
+            this.turn === 2 ? (GameManager.isSinglePlayer ? 'CPU THROW' : 'P2 THROW') : (GameManager.isSinglePlayer ? 'CPU' : 'P2'));
 
-        // Crosshairs
-        ctx.strokeStyle = Theme.p1; ctx.lineWidth = 2;
-        let tx1 = this.cx1 + Math.sin(this.time * 0.8) * 100 + Math.cos(this.time * 1.5) * 50;
-        let ty1 = this.cy1 + Math.cos(this.time * 1.1) * 100 + Math.sin(this.time * 0.7) * 50;
-        ctx.beginPath(); ctx.arc(tx1, ty1, 15, 0, Math.PI*2); ctx.stroke();
+        if (this.popup) {
+            ctx.globalAlpha = this.popup.life;
+            ctx.fillStyle = this.popup.player === 1 ? Theme.p1 : (GameManager.isSinglePlayer ? '#8C52FF' : Theme.p2);
+            ctx.font = 'bold 24px Impact';
+            ctx.textAlign = 'center';
+            ctx.fillText(this.popup.text, this.popup.x, this.popup.y);
+            ctx.globalAlpha = 1;
+        }
 
-        ctx.strokeStyle = Theme.p2;
-        let tx2 = this.cx2 + Math.sin(this.time * 0.9) * 100 + Math.cos(this.time * 1.4) * 50;
-        let ty2 = this.cy2 + Math.cos(this.time * 1.2) * 100 + Math.sin(this.time * 0.6) * 50;
-        ctx.beginPath(); ctx.arc(tx2, ty2, 15, 0, Math.PI*2); ctx.stroke();
+        ctx.fillStyle = Theme.fg;
+        ctx.font = '13px Arial';
+        ctx.fillText('Bullseye 50 · Inner 25 · Outer 10', this.width / 2, this.height - 14);
     }
 }
+
 GameManager.registerGame(new Darts());

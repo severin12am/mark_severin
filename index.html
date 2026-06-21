@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Mark Severin — Living Portfolio</title>
-  <link rel="stylesheet" href="css/styles-v3.css?v=2">
+  <link rel="stylesheet" href="css/styles-v3.css?v=7">
 </head>
 <body>
   <div class="ambient" aria-hidden="true">
@@ -81,13 +81,107 @@
         </svg>
       </button>
     </div>
-    <div class="player-frame-wrap">
-      <iframe id="game-frame" title="Game player" allow="fullscreen; autoplay"></iframe>
+    <div class="player-body">
+      <div class="player-frame-wrap">
+        <iframe id="game-frame" title="Game player" allow="fullscreen; autoplay"></iframe>
+      </div>
+      <aside class="player-scheme" id="player-scheme" aria-label="Bug Eaters tournament scheme">
+        <header class="player-scheme-header">
+          <h2 class="player-scheme-title">One World. One Winner.</h2>
+        </header>
+
+        <div class="scheme-section scheme-section--progression">
+          <h3 class="scheme-section-title">Tournament Progression</h3>
+          <ol class="scheme-list scheme-list--timeline">
+            <li class="scheme-step">
+              <span class="scheme-step-marker" aria-hidden="true"></span>
+              <div class="scheme-step-body">
+                <strong class="scheme-step-label">Monday</strong>
+                <p class="scheme-step-desc">Everyone in the world (including web2 users) participates in races. Survivors receive NFTs.</p>
+              </div>
+            </li>
+            <li class="scheme-step">
+              <span class="scheme-step-marker" aria-hidden="true"></span>
+              <div class="scheme-step-body">
+                <strong class="scheme-step-label">Tuesday</strong>
+                <p class="scheme-step-desc">Requires Monday NFT to participate. Winners receive Tuesday NFTs.</p>
+              </div>
+            </li>
+            <li class="scheme-step">
+              <span class="scheme-step-marker" aria-hidden="true"></span>
+              <div class="scheme-step-body">
+                <strong class="scheme-step-label">Wednesday</strong>
+                <p class="scheme-step-desc">Requires Tuesday NFT to participate. Winners receive Wednesday NFTs.</p>
+              </div>
+            </li>
+            <li class="scheme-step">
+              <span class="scheme-step-marker" aria-hidden="true"></span>
+              <div class="scheme-step-body">
+                <strong class="scheme-step-label">Thursday</strong>
+                <p class="scheme-step-desc">Requires Wednesday NFT to participate. Winners receive Thursday NFTs.</p>
+              </div>
+            </li>
+            <li class="scheme-step">
+              <span class="scheme-step-marker" aria-hidden="true"></span>
+              <div class="scheme-step-body">
+                <strong class="scheme-step-label">Friday</strong>
+                <p class="scheme-step-desc">Requires Thursday NFT to participate. Winners receive Friday NFTs.</p>
+              </div>
+            </li>
+            <li class="scheme-step">
+              <span class="scheme-step-marker" aria-hidden="true"></span>
+              <div class="scheme-step-body">
+                <strong class="scheme-step-label">Saturday</strong>
+                <p class="scheme-step-desc">Requires Friday NFT to participate. Winners receive Saturday NFTs.</p>
+              </div>
+            </li>
+            <li class="scheme-step">
+              <span class="scheme-step-marker" aria-hidden="true"></span>
+              <div class="scheme-step-body">
+                <strong class="scheme-step-label">Sunday</strong>
+                <p class="scheme-step-desc">Final races. One global winner receives exclusive privileges.</p>
+              </div>
+            </li>
+          </ol>
+        </div>
+
+        <div class="scheme-section scheme-section--features">
+          <h3 class="scheme-section-title">Key Features</h3>
+          <ol class="scheme-list">
+            <li class="scheme-step scheme-step--filled">
+              <span class="scheme-step-marker" aria-hidden="true"></span>
+              <div class="scheme-step-body">
+                <strong class="scheme-step-label">Global Participation</strong>
+                <p class="scheme-step-desc">Every game is important because every single player on Earth is fighting each other in a single worldwide elimination tournament.</p>
+              </div>
+            </li>
+            <li class="scheme-step scheme-step--filled">
+              <span class="scheme-step-marker" aria-hidden="true"></span>
+              <div class="scheme-step-body">
+                <strong class="scheme-step-label">NFT Pass Market</strong>
+                <p class="scheme-step-desc">Players can either play to win and sell NFTs or buy them to stay in the race.</p>
+              </div>
+            </li>
+            <li class="scheme-step scheme-step--filled">
+              <span class="scheme-step-marker" aria-hidden="true"></span>
+              <div class="scheme-step-body">
+                <strong class="scheme-step-label">Winner Privileges</strong>
+                <p class="scheme-step-desc">Sunday winner receives real monetary value along with a personal message for the next week&rsquo;s race that he can sell as a slot to advertisers.</p>
+              </div>
+            </li>
+          </ol>
+        </div>
+
+        <div class="scheme-footnotes">
+          <p>Games are short (one minute) and simple</p>
+          <p>No NPCs, no missions &mdash; the only task is to survive and not get eaten.</p>
+        </div>
+      </aside>
     </div>
   </div>
 
   <script defer src="js/design-v3.js?v=18"></script>
   <script defer src="data/catalog.js"></script>
-  <script defer src="js/portfolio.js"></script>
+  <script defer src="js/portfolio.js?v=2"></script>
 </body>
 </html>

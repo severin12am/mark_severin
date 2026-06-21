@@ -374,6 +374,9 @@ function openPlayer(item) {
   const overlay = document.getElementById('player');
   document.getElementById('player-title').textContent = localized(item, 'title', lang);
   document.getElementById('game-frame').src = `${itemBasePath(item)}/index.html?lang=${lang}`;
+  if (item.id === 'bugeaters') {
+    overlay.classList.add('player-overlay--split');
+  }
   overlay.classList.add('open');
   document.body.style.overflow = 'hidden';
 }
@@ -381,7 +384,7 @@ function openPlayer(item) {
 function closePlayer() {
   const overlay = document.getElementById('player');
   if (!overlay) return;
-  overlay.classList.remove('open');
+  overlay.classList.remove('open', 'player-overlay--split');
   document.getElementById('game-frame').src = '';
   document.body.style.overflow = '';
 }
