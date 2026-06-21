@@ -76,7 +76,7 @@ video {
   max-width: 100%;
 }
 
-body > *:not(.ambient) {
+body > *:not(.ambient):not(.player-overlay) {
   position: relative;
   z-index: 1;
 }
