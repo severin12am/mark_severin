@@ -85,6 +85,19 @@ window.GAME_CATALOG = {
       "preview": "preview.png"
     },
     {
+      "id": "lastbrick",
+      "folder": "LastBrick",
+      "languages": ["en", "ru"],
+      "title": { "en": "Last Brick", "ru": "Последний кирпич" },
+      "description": {
+        "en": "Two-player demolition duel — peel the tower face-by-face with cranes, wrecking balls, and TNT. Whoever drops the final brick wins.",
+        "ru": "Дуэль на снос для двух игроков — сносите башню слой за слоем кранами, шаром и TNT. Кто уберёт последний кирпич — победил."
+      },
+      "tags": ["2 player", "party", "physics"],
+      "featured": true,
+      "preview": "preview.png"
+    },
+    {
       "id": "50games",
       "folder": "50games",
       "languages": ["en"],
