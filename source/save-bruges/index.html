@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Save Bruges</title>
+  <style>
+    :root { --bg: #fdfbf7; --panel: #fff; --text: #4a4a4a; --accent: #ffb7b2; }
+    * { box-sizing: border-box; }
+    body, html { margin: 0; padding: 0; width: 100%; height: 100%; font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); overflow: hidden; display: flex; }
+    #app { flex: 1; position: relative; }
+    #ui {
+      width: 300px; background: var(--panel); border-left: 1px solid #eee;
+      box-shadow: -5px 0 20px rgba(0,0,0,0.04); padding: 20px; overflow-y: auto;
+      display: flex; flex-direction: column; gap: 14px;
+    }
+    h1 { margin: 0; font-size: 20px; color: var(--text); border-bottom: 2px solid var(--accent); padding-bottom: 6px; }
+    h2 { margin: 0; font-size: 14px; color: #888; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
+    p, li { font-size: 13px; color: #666; line-height: 1.5; margin: 0; }
+    ul { padding-left: 18px; margin: 0; }
+    .swatches { display: flex; flex-wrap: wrap; gap: 8px; }
+    .swatch {
+      width: 36px; height: 36px; border-radius: 8px; cursor: pointer;
+      border: 3px solid transparent; transition: transform 0.15s, border-color 0.15s;
+    }
+    .swatch:hover { transform: scale(1.08); }
+    .swatch.active { border-color: var(--accent); transform: scale(1.1); }
+    button {
+      padding: 10px; border: none; border-radius: 8px; cursor: pointer;
+      font-weight: 600; color: #fff; background: #b5ead7; transition: filter 0.15s;
+    }
+    button:hover { filter: brightness(0.95); }
+    .hint { font-size: 12px; color: #999; font-style: italic; }
+  </style>
+</head>
+<body>
+  <div id="app"></div>
+  <div id="ui">
+    <h1>Save Bruges</h1>
+    <p class="hint">Click cells to build. Scroll to zoom, drag to pan.</p>
+    <h2>Palette</h2>
+    <div class="swatches" id="swatches"></div>
+    <button id="btn-clear">Clear City</button>
+    <button id="btn-regen">Regenerate Grid</button>
+    <h2>Controls</h2>
+    <ul>
+      <li>Left click — place building</li>
+      <li>Right click — remove</li>
+      <li>Drag — pan camera</li>
+      <li>Scroll — zoom</li>
+    </ul>
+  </div>
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>

@@ -17,3 +17,10 @@ venv/
 
 # Local Netlify folder
 .netlify
+
+# Cursor / local tooling (not part of the site)
+agent-tools/
+terminals/
+
+# Save Bruges dev dependencies (source lives in source/save-bruges/)
+source/save-bruges/node_modules/
