@@ -95,6 +95,7 @@ window.GAME_CATALOG = {
       },
       "tags": ["2 player", "party", "physics"],
       "featured": true,
+      "wip": true,
       "preview": "preview.png"
     },
     {
