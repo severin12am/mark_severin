@@ -139,14 +139,14 @@ class WildWestDraw extends GameBase {
         ctx.strokeRect(270, 80, 260, 200);
 
         ctx.fillStyle = '#3a2a1f';
-        ctx.font = "bold 22px Impact, sans-serif";
+        ctx.font = "bold 22px Impact";
         ctx.textAlign = "center";
         ctx.fillText("WANTED", 400, 115);
         ctx.font = "bold 18px Arial";
         ctx.fillText("FASTEST GUN", 400, 145);
         ctx.fillText("IN THE WEST", 400, 168);
 
-        ctx.font = "bold 48px Impact, sans-serif";
+        ctx.font = "bold 48px Impact";
         if (this.state === "waiting") {
             ctx.fillStyle = Theme.fg;
             ctx.fillText("STEADY...", 400, 320);

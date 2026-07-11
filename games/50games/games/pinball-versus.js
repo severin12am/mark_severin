@@ -1,189 +1,333 @@
-// pinball-versus.js
 class PinballVersus extends GameBase {
     constructor() {
-        super("Pinball Versus", "Split-screen pinball! Control flippers to score on your board. First to 15 points wins.");
+        super("Pinball Versus", "Twin pinball tables! Flip to rack points. First to 20.");
     }
 
     init(w, h) {
         super.init(w, h);
-        if (this.scoreP1 === undefined) {
-            this.scoreP1 = 0;
-            this.scoreP2 = 0;
-        }
+        if (this.scoreP1 === undefined) { this.scoreP1 = 0; this.scoreP2 = 0; }
         this.half = w / 2;
+        this.gravity = 480;
+        this.tableW = this.half - 36;
+        this.tableH = h - 70;
+        this.p1 = this.makeTable(18);
+        this.p2 = this.makeTable(this.half + 18);
+        this.popups = [];
+    }
 
-        // P1 table (left)
-        this.p1Ball = {x: this.half * 0.3, y: 100, vx: 0, vy: 0, r: 12};
-        this.p1LeftFlipper = {angle: 30, active: false}; // degrees, base at bottom
-        this.p1RightFlipper = {angle: -30, active: false};
-        this.p1Bumpers = [
-            {x: this.half * 0.2, y: 180, r: 22},
-            {x: this.half * 0.4, y: 240, r: 18},
-            {x: this.half * 0.1, y: 320, r: 25}
-        ];
+    makeTable(ox) {
+        const tw = this.tableW;
+        const th = this.tableH;
+        return {
+            ox,
+            oy: 40,
+            tw,
+            th,
+            ball: {
+                x: tw * 0.72,
+                y: th * 0.55,
+                vx: 40,
+                vy: -120,
+                r: 10,
+                launched: true,
+                inv: 0
+            },
+            leftFlip: { active: false, angle: 0.35, target: 0.35 },
+            rightFlip: { active: false, angle: -0.35, target: -0.35 },
+            bumpers: [
+                { x: tw * 0.35, y: th * 0.28, r: 18, flash: 0 },
+                { x: tw * 0.62, y: th * 0.22, r: 16, flash: 0 },
+                { x: tw * 0.48, y: th * 0.42, r: 20, flash: 0 }
+            ],
+            launchCd: 0
+        };
+    }
 
-        // P2 table (right)
-        this.p2Ball = {x: this.half * 1.7, y: 100, vx: 0, vy: 0, r: 12};
-        this.p2LeftFlipper = {angle: 30, active: false};
-        this.p2RightFlipper = {angle: -30, active: false};
-        this.p2Bumpers = [
-            {x: this.half * 1.2, y: 180, r: 22},
-            {x: this.half * 1.4, y: 240, r: 18},
-            {x: this.half * 1.6, y: 320, r: 25}
-        ];
+    flipperKick(table, ball) {
+        const fy = table.th - 55;
+        const leftBaseX = table.tw * 0.28;
+        const rightBaseX = table.tw * 0.72;
+        const reach = 52;
 
-        this.gravity = 420;
-        this.bounce = 0.85;
+        // left flipper
+        if (table.leftFlip.active && ball.y > fy - 28 && ball.y < fy + 18) {
+            const tipX = leftBaseX + Math.cos(table.leftFlip.angle) * reach;
+            if (ball.x > leftBaseX - 10 && ball.x < tipX + 16) {
+                ball.vy = -Math.abs(ball.vy) * 0.2 - 360;
+                ball.vx += 90 + (ball.x - leftBaseX) * 1.2;
+                ball.y = fy - ball.r;
+                AudioManager.move();
+            }
+        }
+        // right flipper
+        if (table.rightFlip.active && ball.y > fy - 28 && ball.y < fy + 18) {
+            const tipX = rightBaseX - Math.cos(-table.rightFlip.angle) * reach;
+            if (ball.x < rightBaseX + 10 && ball.x > tipX - 16) {
+                ball.vy = -Math.abs(ball.vy) * 0.2 - 360;
+                ball.vx -= 90 + (rightBaseX - ball.x) * 1.2;
+                ball.y = fy - ball.r;
+                AudioManager.move();
+            }
+        }
+    }
+
+    updateTable(table, isP1, dt) {
+        const b = table.ball;
+        const L = table.leftFlip;
+        const R = table.rightFlip;
+
+        L.target = L.active ? -0.45 : 0.4;
+        R.target = R.active ? 0.45 : -0.4;
+        L.angle += (L.target - L.angle) * Math.min(1, 18 * dt);
+        R.angle += (R.target - R.angle) * Math.min(1, 18 * dt);
+
+        for (const bmp of table.bumpers) {
+            if (bmp.flash > 0) bmp.flash -= dt;
+        }
+
+        if (table.launchCd > 0) table.launchCd -= dt;
+        if (b.inv > 0) b.inv -= dt;
+
+        if (!b.launched) {
+            b.x = table.tw * 0.85;
+            b.y = table.th * 0.7;
+            b.vx = 0;
+            b.vy = 0;
+            return;
+        }
+
+        b.vy += this.gravity * dt;
+        b.x += b.vx * dt;
+        b.y += b.vy * dt;
+
+        // walls
+        if (b.x - b.r < 10) {
+            b.x = 10 + b.r;
+            b.vx = Math.abs(b.vx) * 0.85;
+            AudioManager.tick();
+        }
+        if (b.x + b.r > table.tw - 10) {
+            b.x = table.tw - 10 - b.r;
+            b.vx = -Math.abs(b.vx) * 0.85;
+            AudioManager.tick();
+        }
+        if (b.y - b.r < 10) {
+            b.y = 10 + b.r;
+            b.vy = Math.abs(b.vy) * 0.8;
+            AudioManager.tick();
+        }
+
+        // drain
+        if (b.y > table.th + 10) {
+            b.launched = false;
+            b.x = table.tw * 0.85;
+            b.y = table.th * 0.7;
+            b.vx = 0;
+            b.vy = 0;
+            table.launchCd = 0.2;
+            AudioManager.wrong();
+            return;
+        }
+
+        this.flipperKick(table, b);
+
+        // bumpers
+        for (const bmp of table.bumpers) {
+            const dx = b.x - bmp.x;
+            const dy = b.y - bmp.y;
+            const dist = Math.hypot(dx, dy) || 1;
+            if (dist < b.r + bmp.r) {
+                const nx = dx / dist;
+                const ny = dy / dist;
+                const push = b.r + bmp.r - dist;
+                b.x += nx * push;
+                b.y += ny * push;
+                const dot = b.vx * nx + b.vy * ny;
+                if (dot < 0) {
+                    b.vx -= 2.1 * dot * nx;
+                    b.vy -= 2.1 * dot * ny;
+                }
+                b.vx += nx * 80;
+                b.vy += ny * 80;
+                // speed clamp
+                const sp = Math.hypot(b.vx, b.vy);
+                if (sp > 620) {
+                    b.vx = (b.vx / sp) * 620;
+                    b.vy = (b.vy / sp) * 620;
+                }
+                if (b.inv <= 0) {
+                    if (isP1) this.scoreP1 += 2;
+                    else this.scoreP2 += 2;
+                    bmp.flash = 0.2;
+                    b.inv = 0.12;
+                    this.popups.push({
+                        x: table.ox + bmp.x,
+                        y: table.oy + bmp.y - 18,
+                        text: '+2',
+                        life: 0.4
+                    });
+                    AudioManager.correct();
+                }
+            }
+        }
+
+        // gentle friction
+        b.vx *= 0.999;
+    }
+
+    launch(table) {
+        if (table.ball.launched || table.launchCd > 0) return;
+        table.ball.launched = true;
+        table.ball.x = table.tw * 0.78;
+        table.ball.y = table.th * 0.62;
+        table.ball.vx = -40 - Math.random() * 60;
+        table.ball.vy = -420 - Math.random() * 80;
+        AudioManager.select();
+    }
+
+    checkWin() {
+        if (this.scoreP1 >= 20) {
+            GameManager.gameOver(1);
+            return true;
+        }
+        if (this.scoreP2 >= 20) {
+            GameManager.gameOver(2);
+            return true;
+        }
+        return false;
     }
 
     update(dt) {
-        // P1 controls (A/D flippers, Space plunger/launch if dead)
-        this.p1LeftFlipper.active = Input.isDown('KeyA');
-        this.p1RightFlipper.active = Input.isDown('KeyD');
-        if (Input.isDown('Space') && Math.abs(this.p1Ball.vy) < 10) this.p1Ball.vy = -380; // launch
+        this.p1.leftFlip.active = Input.isDown('KeyA');
+        this.p1.rightFlip.active = Input.isDown('KeyD');
+        if (Input.isDown('Space')) this.launch(this.p1);
+        // also W as launch alternate
+        if (Input.isDown('KeyW')) this.launch(this.p1);
 
-        // P2 or CPU
         if (GameManager.isSinglePlayer) {
-            // CPU: flip when ball near bottom or random
-            this.p2LeftFlipper.active = (this.p2Ball.y > 420 && this.p2Ball.x < this.half * 1.5) || Math.random() < 0.1;
-            this.p2RightFlipper.active = (this.p2Ball.y > 420 && this.p2Ball.x > this.half * 1.5) || Math.random() < 0.1;
+            const b = this.p2.ball;
+            const nearBottom = b.y > this.p2.th * 0.62;
+            this.p2.leftFlip.active = nearBottom && b.x < this.p2.tw * 0.55 && (b.vy > 0 || Math.random() < 0.05);
+            this.p2.rightFlip.active = nearBottom && b.x > this.p2.tw * 0.45 && (b.vy > 0 || Math.random() < 0.05);
+            // imperfect: random miss chance
+            if (Math.random() < 0.02) {
+                this.p2.leftFlip.active = false;
+                this.p2.rightFlip.active = false;
+            }
+            if (!b.launched && Math.random() < 0.04) this.launch(this.p2);
         } else {
-            this.p2LeftFlipper.active = Input.isDown('ArrowLeft');
-            this.p2RightFlipper.active = Input.isDown('ArrowRight');
-            if (Input.isDown('Enter') && Math.abs(this.p2Ball.vy) < 10) this.p2Ball.vy = -380;
+            this.p2.leftFlip.active = Input.isDown('ArrowLeft');
+            this.p2.rightFlip.active = Input.isDown('ArrowRight');
+            if (Input.isDown('Enter') || Input.isDown('ArrowUp')) this.launch(this.p2);
         }
 
-        // Update P1 ball
-        this.updateBall(this.p1Ball, this.p1LeftFlipper, this.p1RightFlipper, this.p1Bumpers, true, dt);
-        // Update P2 ball
-        this.updateBall(this.p2Ball, this.p2LeftFlipper, this.p2RightFlipper, this.p2Bumpers, false, dt);
+        this.updateTable(this.p1, true, dt);
+        this.updateTable(this.p2, false, dt);
 
-        if (this.scoreP1 >= 15) GameManager.gameOver(1);
-        if (this.scoreP2 >= 15) GameManager.gameOver(2);
+        for (let i = this.popups.length - 1; i >= 0; i--) {
+            this.popups[i].y -= 35 * dt;
+            this.popups[i].life -= dt;
+            if (this.popups[i].life <= 0) this.popups.splice(i, 1);
+        }
+
+        if (this.checkWin()) return;
     }
 
-    updateBall(ball, leftF, rightF, bumpers, isP1, dt) {
-        ball.vy += this.gravity * dt;
-        ball.x += ball.vx * dt;
-        ball.y += ball.vy * dt;
+    drawTable(ctx, table, color, label) {
+        const { ox, oy, tw, th } = table;
 
-        const half = this.half;
-        const leftWall = isP1 ? 30 : half + 30;
-        const rightWall = isP1 ? half - 30 : this.width - 30;
+        // cabinet
+        ctx.fillStyle = 'rgba(255,255,255,0.04)';
+        ctx.fillRect(ox, oy, tw, th);
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 4;
+        ctx.strokeRect(ox, oy, tw, th);
 
-        // Wall bounce
-        if (ball.x - ball.r < leftWall) { ball.x = leftWall + ball.r; ball.vx = -ball.vx * this.bounce; }
-        if (ball.x + ball.r > rightWall) { ball.x = rightWall - ball.r; ball.vx = -ball.vx * this.bounce; }
-        if (ball.y - ball.r < 30) { ball.y = 30 + ball.r; ball.vy = -ball.vy * this.bounce; }
+        // drain notch
+        ctx.fillStyle = Theme.bg;
+        ctx.fillRect(ox + tw * 0.35, oy + th - 8, tw * 0.3, 12);
 
-        // Bottom loss → respawn
-        if (ball.y > this.height + 20) {
-            ball.x = isP1 ? half * 0.3 : half * 1.7;
-            ball.y = 100;
-            ball.vx = (Math.random() - 0.5) * 80;
-            ball.vy = 120;
+        // bumpers
+        for (const bmp of table.bumpers) {
+            ctx.beginPath();
+            ctx.arc(ox + bmp.x, oy + bmp.y, bmp.r, 0, Math.PI * 2);
+            ctx.fillStyle = bmp.flash > 0 ? Theme.fg : Theme.accent;
+            ctx.fill();
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 2;
+            ctx.stroke();
         }
 
-        // Flippers (simple kick if active and near bottom)
-        const flipY = this.height - 80;
-        if (ball.y > flipY - 20 && Math.abs(ball.y - flipY) < 30) {
-            if (leftF.active && ball.x < (isP1 ? half * 0.5 : half * 1.3)) {
-                ball.vy = -280;
-                ball.vx -= 80;
-            }
-            if (rightF.active && ball.x > (isP1 ? half * 0.4 : half * 1.4)) {
-                ball.vy = -280;
-                ball.vx += 80;
-            }
+        // flippers
+        const fy = oy + th - 55;
+        const reach = 52;
+        ctx.lineCap = 'round';
+        ctx.lineWidth = 12;
+        ctx.strokeStyle = color;
+
+        const lx = ox + tw * 0.28;
+        ctx.beginPath();
+        ctx.moveTo(lx, fy);
+        ctx.lineTo(lx + Math.cos(table.leftFlip.angle) * reach, fy + Math.sin(table.leftFlip.angle) * reach * 0.55);
+        ctx.stroke();
+
+        const rx = ox + tw * 0.72;
+        ctx.beginPath();
+        ctx.moveTo(rx, fy);
+        ctx.lineTo(rx - Math.cos(-table.rightFlip.angle) * reach, fy + Math.sin(table.rightFlip.angle) * reach * 0.55);
+        ctx.stroke();
+
+        // ball
+        ctx.fillStyle = Theme.fg;
+        ctx.beginPath();
+        ctx.arc(ox + table.ball.x, oy + table.ball.y, table.ball.r, 0, Math.PI * 2);
+        ctx.fill();
+
+        if (!table.ball.launched) {
+            ctx.fillStyle = Theme.accent;
+            ctx.font = 'bold 14px Arial';
+            ctx.textAlign = 'center';
+            const hint = label === 'P1' ? 'SPACE to launch' : (label === 'CPU' ? '…' : 'ENTER to launch');
+            ctx.fillText(hint, ox + tw / 2, oy + th * 0.55);
         }
 
-        // Bumpers
-        for (let b of bumpers) {
-            const dx = ball.x - b.x;
-            const dy = ball.y - b.y;
-            const dist = Math.hypot(dx, dy);
-            if (dist < ball.r + b.r) {
-                const nx = dx / dist;
-                const ny = dy / dist;
-                const dot = ball.vx * nx + ball.vy * ny;
-                ball.vx -= 2 * dot * nx;
-                ball.vy -= 2 * dot * ny;
-                ball.vx *= 1.4;
-                ball.vy *= 1.4;
-                if (isP1) this.scoreP1 += 2;
-                else this.scoreP2 += 2;
-                ball.x += nx * 5;
-                ball.y += ny * 5;
-            }
-        }
+        ctx.fillStyle = Theme.fg;
+        ctx.font = 'bold 12px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText(label, ox + tw / 2, oy + 18);
     }
 
     render(ctx) {
         ctx.fillStyle = Theme.bg;
         ctx.fillRect(0, 0, this.width, this.height);
 
-        // Split divider
         ctx.strokeStyle = Theme.fg;
-        ctx.lineWidth = 6;
+        ctx.lineWidth = 4;
         ctx.beginPath();
         ctx.moveTo(this.half, 0);
         ctx.lineTo(this.half, this.height);
         ctx.stroke();
 
-        // Draw tables
-        this.drawTable(ctx, true, Theme.p1);
-        this.drawTable(ctx, false, Theme.p2);
+        this.drawTable(ctx, this.p1, Theme.p1, 'P1');
+        this.drawTable(ctx, this.p2, GameManager.isSinglePlayer ? '#8C52FF' : Theme.p2,
+            GameManager.isSinglePlayer ? 'CPU' : 'P2');
 
-        // Scores
-        ctx.fillStyle = Theme.fg;
-        ctx.font = "bold 28px monospace";
-        ctx.textAlign = "center";
-        ctx.fillText(this.scoreP1, this.half * 0.5, 45);
-        ctx.fillText(this.scoreP2, this.half * 1.5, 45);
-    }
-
-    drawTable(ctx, isP1, color) {
-        const ox = isP1 ? 0 : this.half;
-        const ball = isP1 ? this.p1Ball : this.p2Ball;
-        const bumpers = isP1 ? this.p1Bumpers : this.p2Bumpers;
-        const leftF = isP1 ? this.p1LeftFlipper : this.p2LeftFlipper;
-        const rightF = isP1 ? this.p1RightFlipper : this.p2RightFlipper;
-
-        // Walls
-        ctx.strokeStyle = color;
-        ctx.lineWidth = 12;
-        ctx.strokeRect(ox + 20, 20, this.half - 40, this.height - 60);
-
-        // Bumpers
-        ctx.fillStyle = Theme.accent;
-        for (let b of bumpers) {
-            ctx.beginPath();
-            ctx.arc(ox + b.x, b.y, b.r, 0, Math.PI * 2);
-            ctx.fill();
+        for (const p of this.popups) {
+            ctx.globalAlpha = Math.max(0, p.life * 1.6);
+            ctx.fillStyle = Theme.accent;
+            ctx.font = 'bold 14px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText(p.text, p.x, p.y);
         }
+        ctx.globalAlpha = 1;
 
-        // Ball
         ctx.fillStyle = Theme.fg;
-        ctx.beginPath();
-        ctx.arc(ox + ball.x, ball.y, ball.r, 0, Math.PI * 2);
-        ctx.fill();
-
-        // Flippers (simple angled rects)
-        ctx.strokeStyle = color;
-        ctx.lineWidth = 14;
-        ctx.lineCap = "round";
-        // left flipper
-        let lx = ox + (isP1 ? 140 : this.half + 120);
-        ctx.beginPath();
-        ctx.moveTo(lx, this.height - 70);
-        ctx.lineTo(lx + Math.cos((leftF.angle + (leftF.active ? -35 : 0)) * Math.PI / 180) * 60, this.height - 70 + Math.sin((leftF.angle + (leftF.active ? -35 : 0)) * Math.PI / 180) * 18);
-        ctx.stroke();
-        // right flipper
-        let rx = ox + (isP1 ? this.half - 120 : this.width - 140);
-        ctx.beginPath();
-        ctx.moveTo(rx, this.height - 70);
-        ctx.lineTo(rx + Math.cos((rightF.angle + (rightF.active ? 35 : 0)) * Math.PI / 180) * -60, this.height - 70 + Math.sin((rightF.angle + (rightF.active ? 35 : 0)) * Math.PI / 180) * 18);
-        ctx.stroke();
+        ctx.font = 'bold 20px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText(`Score: ${this.scoreP1} — ${this.scoreP2}  (first to 20)`, this.width / 2, 24);
+        ctx.font = '12px Arial';
+        ctx.fillStyle = Theme.accent;
+        ctx.fillText('A/D or ←/→ flippers · SPACE / ENTER (or W/↑) launch', this.width / 2, this.height - 12);
     }
 }
 
