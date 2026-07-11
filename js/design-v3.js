@@ -171,18 +171,10 @@
     return selected;
   }
 
-  // Tracking: short headings need air so m≠nn and p/s don't fuse.
-  // Long phrases keep a wider, airier rhythm.
-  function phraseGaps(fontSize, isLong) {
-    return {
-      letterGap: isLong ? fontSize * 0.1 : fontSize * 0.1,
-      wordGap: isLong ? fontSize * 0.22 : fontSize * 0.1,
-    };
-  }
-
   function measurePhraseWidth(ctx, text, fontSize, font, isLong) {
     ctx.font = font;
-    const { letterGap, wordGap } = phraseGaps(fontSize, isLong);
+    const letterGap = isLong ? fontSize * 0.085 : fontSize * 0.022;
+    const wordGap = isLong ? fontSize * 0.16 : fontSize * 0.04;
     let width = 0;
     const words = text.split(' ');
 
@@ -198,179 +190,32 @@
     return width;
   }
 
-  /** Thin / easy-to-lose glyphs get a higher sampling weight floor. */
-  function glyphWeight(ch, measuredW, fontSize) {
-    const base = Math.max(measuredW, fontSize * 0.28);
-    if (ch === "'" || ch === '’' || ch === '`' || ch === '.') return Math.max(base, fontSize * 0.5);
-    if (ch === 'I' || ch === 'i' || ch === 'l' || ch === 't' || ch === 'f' || ch === 'j') {
-      return Math.max(base, fontSize * 0.45);
-    }
-    // Multi-arch letters need budget for all stems/arches.
-    if (ch === 'm' || ch === 'w' || ch === 'M' || ch === 'W') return base * 1.35;
-    if (ch === 's' || ch === 'S') return base * 1.2;
-    if (ch === 'e' || ch === 'a' || ch === 'g' || ch === 'p' || ch === 'P') return base * 1.1;
-    return base;
-  }
-
-  /**
-   * Sample one glyph with a thin stroke outline (no heavy fill) so counters
-   * and multi-arch letters stay open. Returns points in local glyph space
-   * (origin at left of advance, vertical center).
-   */
-  function sampleGlyphPoints(ch, font, fontSize, scale) {
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d', { alpha: true, willReadFrequently: true });
-    if (!ctx) return { points: [], advance: fontSize * 0.5 };
-
-    ctx.font = font;
-    const advance = ctx.measureText(ch).width;
-    const padX = Math.ceil(fontSize * 0.28);
-    const padY = Math.ceil(fontSize * 0.36);
-    const logicalW = Math.max(1, Math.ceil(advance) + padX * 2);
-    const logicalH = Math.ceil(fontSize * 1.35) + padY * 2;
-
-    canvas.width = Math.max(1, Math.ceil(logicalW * scale));
-    canvas.height = Math.max(1, Math.ceil(logicalH * scale));
-    ctx.setTransform(scale, 0, 0, scale, 0, 0);
-    ctx.clearRect(0, 0, logicalW, logicalH);
+  function drawPhraseStrokes(ctx, text, x, y, fontSize, font, isLong) {
     ctx.font = font;
     ctx.textBaseline = 'middle';
     ctx.textAlign = 'left';
     ctx.lineJoin = 'round';
     ctx.lineCap = 'round';
-    // Thin stroke keeps m arches / s openings from sealing into blobs.
-    ctx.lineWidth = Math.max(1.05, fontSize * 0.032);
+    ctx.lineWidth = Math.max(1.15, fontSize * 0.038);
     ctx.strokeStyle = '#ffffff';
-    ctx.fillStyle = 'rgba(255,255,255,0.03)';
+    ctx.fillStyle = 'rgba(255,255,255,0.1)';
 
-    const x = padX;
-    const y = logicalH / 2;
-    ctx.fillText(ch, x, y);
-    ctx.strokeText(ch, x, y);
+    const letterGap = isLong ? fontSize * 0.085 : fontSize * 0.022;
+    const wordGap = isLong ? fontSize * 0.16 : fontSize * 0.04;
+    let cx = x;
+    const words = text.split(' ');
 
-    const { data } = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    const cw = canvas.width;
-    const chh = canvas.height;
-    const step = Math.max(1, Math.round(DOT_PX * scale * 0.75));
-    const alphaAt = (px, py) => {
-      if (px < 0 || py < 0 || px >= cw || py >= chh) return 0;
-      return data[(py * cw + px) * 4 + 3];
-    };
-
-    const raw = [];
-    for (let py = 0; py < chh; py += step) {
-      for (let px = 0; px < cw; px += step) {
-        const a = alphaAt(px, py);
-        if (a <= 20) continue;
-        // Edge-only: letter identity is in the outline, not the fill blob.
-        const edge =
-          alphaAt(px - step, py) <= 20 ||
-          alphaAt(px + step, py) <= 20 ||
-          alphaAt(px, py - step) <= 20 ||
-          alphaAt(px, py + step) <= 20;
-        if (edge) {
-          raw.push({
-            x: px / scale - padX,
-            y: py / scale - logicalH / 2,
-          });
-        }
+    for (let wi = 0; wi < words.length; wi++) {
+      const word = words[wi];
+      for (let ci = 0; ci < word.length; ci++) {
+        const ch = word[ci];
+        ctx.fillText(ch, cx, y);
+        ctx.strokeText(ch, cx, y);
+        cx += ctx.measureText(ch).width;
+        if (ci < word.length - 1) cx += letterGap;
       }
+      if (wi < words.length - 1) cx += wordGap;
     }
-
-    // Tiny marks (') may have almost no edge ring — take all ink.
-    if (raw.length < 10) {
-      raw.length = 0;
-      for (let py = 0; py < chh; py += step) {
-        for (let px = 0; px < cw; px += step) {
-          if (alphaAt(px, py) > 20) {
-            raw.push({
-              x: px / scale - padX,
-              y: py / scale - logicalH / 2,
-            });
-          }
-        }
-      }
-    }
-
-    let points = snapGrid(raw, DOT_PX * 0.85);
-
-    // Reinforce multi-arch letters: ensure left / mid / right vertical bands
-    // keep samples so m doesn't collapse to "nn".
-    if ((ch === 'm' || ch === 'w' || ch === 'M' || ch === 'W') && points.length > 12) {
-      points = reinforceVerticalBands(points, 3);
-    }
-    if ((ch === 's' || ch === 'S' || ch === 'e' || ch === 'a') && points.length > 10) {
-      points = reinforceVerticalBands(points, 2);
-    }
-
-    return { points, advance };
-  }
-
-  /** Keep points spread across N horizontal bands of the glyph bbox. */
-  function reinforceVerticalBands(points, bands) {
-    let minX = Infinity;
-    let maxX = -Infinity;
-    for (const p of points) {
-      if (p.x < minX) minX = p.x;
-      if (p.x > maxX) maxX = p.x;
-    }
-    const span = Math.max(maxX - minX, 1);
-    const byBand = Array.from({ length: bands }, () => []);
-    for (const p of points) {
-      const t = (p.x - minX) / span;
-      const b = Math.min(bands - 1, Math.floor(t * bands));
-      byBand[b].push(p);
-    }
-    // If a band is starved, pull nearest points from neighbors (already in set).
-    // Farthest-point later still thins; this just guarantees candidates exist.
-    const minBand = Math.max(4, Math.floor(points.length / (bands * 2.2)));
-    const out = points.slice();
-    for (let b = 0; b < bands; b++) {
-      if (byBand[b].length >= minBand) continue;
-      const targetX = minX + ((b + 0.5) / bands) * span;
-      // Duplicate a few nearest existing points nudged into the empty band.
-      const sorted = points.slice().sort((a, c) => Math.abs(a.x - targetX) - Math.abs(c.x - targetX));
-      const need = minBand - byBand[b].length;
-      for (let k = 0; k < need && k < sorted.length; k++) {
-        out.push({ x: targetX + (k % 3 - 1) * 0.35, y: sorted[k].y });
-      }
-    }
-    return out;
-  }
-
-  function allocateGlyphBudgets(weights, targetCount, minPer) {
-    const n = weights.length;
-    if (!n) return [];
-    const totalW = weights.reduce((s, w) => s + w, 0) || 1;
-    const budgets = weights.map((w) => Math.max(minPer, Math.round((targetCount * w) / totalW)));
-    let sum = budgets.reduce((s, b) => s + b, 0);
-
-    // Trim / grow to match targetCount while keeping at least minPer.
-    let guard = 0;
-    while (sum > targetCount && guard++ < 10000) {
-      let best = -1;
-      let bestExtra = -1;
-      for (let i = 0; i < n; i++) {
-        const extra = budgets[i] - minPer;
-        if (extra > bestExtra) {
-          bestExtra = extra;
-          best = i;
-        }
-      }
-      if (best < 0 || bestExtra <= 0) break;
-      budgets[best]--;
-      sum--;
-    }
-    guard = 0;
-    while (sum < targetCount && guard++ < 10000) {
-      let best = 0;
-      for (let i = 1; i < n; i++) {
-        if (budgets[i] / weights[i] < budgets[best] / weights[best]) best = i;
-      }
-      budgets[best]++;
-      sum++;
-    }
-    return budgets;
   }
 
   function canvasPointsToOffsets(points, logicalW, logicalH) {
@@ -385,116 +230,52 @@
     }));
   }
 
-  /**
-   * Per-glyph sampling: each letter gets its own budget so G can't starve m/s,
-   * and thin marks (I, ') keep enough dots to read at a glance.
-   */
   function samplePhrase(text, font, options) {
     const { targetCount, isLong, maxHalfWvw, maxHalfVh } = options;
-    const probe = document.createElement('canvas').getContext('2d');
-    if (!probe) return [{ dx: 0, dy: 0 }];
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d', { alpha: true });
+    if (!ctx) return [{ dx: 0, dy: 0 }];
 
     const fontSize = parseFontSize(font);
     const dpr = Math.min(window.devicePixelRatio || 2, 3);
     const supersample = 2.5;
     const scale = dpr * supersample;
-    const { letterGap, wordGap } = phraseGaps(fontSize, isLong);
 
-    probe.font = font;
+    ctx.font = font;
+    const textW = measurePhraseWidth(ctx, text, fontSize, font, isLong);
+    const pad = Math.ceil(fontSize * 0.28);
+    const logicalW = Math.ceil(textW) + pad * 2;
+    const logicalH = Math.ceil(fontSize * 1.22) + pad * 2;
 
-    // Flatten to positioned glyphs (spaces advance cursor only).
-    const glyphs = [];
-    let cursorX = 0;
-    const words = text.split(' ');
-    for (let wi = 0; wi < words.length; wi++) {
-      const word = words[wi];
-      for (let ci = 0; ci < word.length; ci++) {
-        const ch = word[ci];
-        const measured = probe.measureText(ch).width;
-        glyphs.push({
-          ch,
-          x: cursorX,
-          weight: glyphWeight(ch, measured, fontSize),
-        });
-        cursorX += measured;
-        if (ci < word.length - 1) cursorX += letterGap;
-      }
-      if (wi < words.length - 1) cursorX += wordGap;
-    }
+    canvas.width = Math.ceil(logicalW * scale);
+    canvas.height = Math.ceil(logicalH * scale);
+    ctx.setTransform(scale, 0, 0, scale, 0, 0);
+    ctx.font = font;
+    drawPhraseStrokes(ctx, text, pad, logicalH / 2, fontSize, font, isLong);
 
-    if (!glyphs.length) return [{ dx: 0, dy: 0 }];
+    const { data } = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const cw = canvas.width;
+    const step = DOT_PX * scale;
+    const raw = [];
 
-    // Guarantee every glyph enough dots. Short words (Games/Apps) can spend more
-    // per letter; long phrases and tiny mobile pools stay conservative.
-    const glyphN = glyphs.length;
-    let minPer;
-    if (targetCount >= 280) minPer = glyphN <= 6 ? 14 : 8;
-    else if (targetCount >= 160) minPer = glyphN <= 6 ? 10 : 5;
-    else minPer = glyphN <= 6 ? 6 : 3;
-    // Never demand more than the pool can pay.
-    minPer = Math.min(minPer, Math.floor(targetCount / Math.max(glyphN, 1)));
-    const budgets = allocateGlyphBudgets(
-      glyphs.map((g) => g.weight),
-      targetCount,
-      Math.max(2, minPer)
-    );
-
-    const allPoints = [];
-    let maxX = 0;
-    let minY = Infinity;
-    let maxY = -Infinity;
-
-    for (let i = 0; i < glyphs.length; i++) {
-      const g = glyphs[i];
-      const { points, advance } = sampleGlyphPoints(g.ch, font, fontSize, scale);
-      let picked = points;
-      if (picked.length > budgets[i]) {
-        picked = farthestPointSample(picked, budgets[i]);
-      }
-      // If a glyph undersampled, duplicate farthest extremes so it doesn't vanish.
-      if (picked.length && picked.length < budgets[i]) {
-        const need = budgets[i] - picked.length;
-        for (let k = 0; k < need; k++) {
-          const src = picked[k % picked.length];
-          picked.push({
-            x: src.x + (k % 2 === 0 ? 0.4 : -0.4),
-            y: src.y + (k % 3 === 0 ? 0.4 : -0.4),
-          });
+    for (let y = 0; y < canvas.height; y += step) {
+      for (let x = 0; x < canvas.width; x += step) {
+        const i = (Math.floor(y) * cw + Math.floor(x)) * 4;
+        if (data[i + 3] > 36) {
+          raw.push({ x: x / scale, y: y / scale });
         }
       }
-
-      for (const p of picked) {
-        const x = g.x + p.x;
-        const y = p.y;
-        allPoints.push({ x, y });
-        maxX = Math.max(maxX, x);
-        minY = Math.min(minY, y);
-        maxY = Math.max(maxY, y);
-      }
-      // Keep layout width honest even if last glyph is thin.
-      maxX = Math.max(maxX, g.x + advance);
     }
 
-    if (!allPoints.length) return [{ dx: 0, dy: 0 }];
-
-    const pad = Math.ceil(fontSize * 0.28);
-    const logicalW = Math.ceil(maxX) + pad * 2;
-    const logicalH = Math.ceil(Math.max(fontSize * 1.22, maxY - minY + fontSize * 0.2)) + pad * 2;
-    const midY = (minY + maxY) / 2;
-
-    const placed = allPoints.map((p) => ({
-      x: p.x + pad,
-      y: p.y - midY + logicalH / 2,
-    }));
-
-    // Final global thin if rounding overshot (rare).
-    let finalPts = placed;
-    if (finalPts.length > targetCount) {
-      finalPts = farthestPointSample(finalPts, targetCount);
+    let snapped = snapGrid(raw, DOT_PX);
+    if (snapped.length > targetCount) {
+      snapped = farthestPointSample(snapped, targetCount);
     }
+
+    if (!snapped.length) return [{ dx: 0, dy: 0 }];
 
     return scaleOffsets(
-      canvasPointsToOffsets(finalPts, logicalW, logicalH),
+      canvasPointsToOffsets(snapped, logicalW, logicalH),
       maxHalfWvw,
       maxHalfVh
     );
@@ -762,17 +543,6 @@
     if (nextText?.apps) TEXT.apps = nextText.apps;
     return preloadFonts().then(rebuildTargets);
   };
-
-  /** Debug: return formed-phrase point clouds (offsets in vw/vh from center). */
-  window.__debugPhraseTargets = () => ({
-    texts: { ...TEXT },
-    counts: { ...phrase.counts },
-    targets: {
-      things: phrase.targets.things.map((p) => ({ ...p })),
-      games: phrase.targets.games.map((p) => ({ ...p })),
-      apps: phrase.targets.apps.map((p) => ({ ...p })),
-    },
-  });
 
   window.addEventListener('scroll', onScroll, { passive: true });
   window.addEventListener('resize', () => {
