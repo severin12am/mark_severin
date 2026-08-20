@@ -2,9 +2,9 @@ import type { HSL } from '../core/types';
 import { clamp, lerp } from '../core/rng';
 
 export const PALETTE: string[] = [
-  '#fcd5ce', '#e2f0cb', '#b5ead7', '#c7ceea',
-  '#ffdac1', '#f8ad9d', '#75b8c8', '#a8d8ea',
-  '#ff9aa2', '#dfe7fd', '#fff5ba',
+  '#f4efe4', '#e9dcc6', '#e8cfc4', '#ead8b8',
+  '#cdd6d4', '#d7d9c4', '#e0cfd0', '#c9d3d9',
+  '#d9c8b4', '#dfe3e0', '#e3d9e0',
 ];
 
 export function hexToHsl(hex: string): HSL {
@@ -65,15 +65,11 @@ export function applyPastelHex(hex: string, satMult = 1, lightMult = 1): string 
   return hslToHex(hsl.h, clamp(hsl.s * satMult, 0.2, 0.8), clamp(hsl.l * lightMult, 0.3, 0.9));
 }
 
-export function complementaryRoofColor(wall: HSL): HSL {
-  return {
-    h: (wall.h + 35) % 360,
-    s: clamp(wall.s + 0.05, 0.25, 0.7),
-    l: clamp(wall.l - 0.08, 0.35, 0.75),
-  };
+export function complementaryRoofColor(_wall: HSL): HSL {
+  return { h: 18, s: 0.36, l: 0.46 };
 }
 
-export const DEFAULT_ROOF_COLOR: HSL = hexToHsl('#75b8c8');
+export const DEFAULT_ROOF_COLOR: HSL = hexToHsl('#c07a5e');
 
 export function applyPastelShade(hsl: HSL, satMult = 1, lightMult = 1): string {
   return hslToHex(hsl.h, clamp(hsl.s * satMult, 0.2, 0.8), clamp(hsl.l * lightMult, 0.3, 0.9));
@@ -81,7 +77,7 @@ export function applyPastelShade(hsl: HSL, satMult = 1, lightMult = 1): string {
 
 export function roleColor(base: HSL, role: string, jitter: number): string {
   const shifts: Record<string, { dh: number; ds: number; dl: number }> = {
-    wall: { dh: 0, ds: 0, dl: 0 },
+    wall: { dh: 0, ds: 0.06, dl: -0.1 },
     roof: { dh: 12, ds: -0.08, dl: -0.06 },
     trim: { dh: -8, ds: -0.25, dl: 0.12 },
     decor: { dh: 20, ds: 0.05, dl: -0.1 },
@@ -92,7 +88,7 @@ export function roleColor(base: HSL, role: string, jitter: number): string {
   return hslToHex(
     base.h + s.dh + j,
     clamp(base.s + s.ds, 0.22, 0.72),
-    clamp(base.l + s.dl + ((jitter >> 3) % 5 - 2) * 0.015, 0.32, 0.88),
+    clamp(base.l + s.dl + ((jitter >> 3) % 5 - 2) * 0.015, role === 'wall' ? 0.42 : 0.32, role === 'wall' ? 0.62 : 0.82),
   );
 }
 
@@ -104,8 +100,13 @@ export function mixHsl(a: HSL, b: HSL, t: number): HSL {
   };
 }
 
-export const DEFAULT_BUILDING_COLOR: HSL = hexToHsl('#fcd5ce');
-export const WATER_COLOR = '#6ec4d8';
-export const GROUND_COLOR = '#e8e4d9';
+export const DEFAULT_BUILDING_COLOR: HSL = hexToHsl('#f4efe4');
+export const WATER_COLOR = '#4fa8c4';
+export const LAND_COLOR = '#a8bf80';
+/** Distance haze / clear colour: land dissolves into the sky rather than ending on a hard edge. */
+export const LAND_HORIZON = '#dfe9e8';
+export const SKY_TOP = '#7fb0d4';
+export const SKY_BOTTOM = '#eef3ef';
+export const GROUND_COLOR = '#e2dccf';
 export const OUTLINE_COLOR = '#3a3530';
 export const GAP_COLOR = '#fdfbf7';

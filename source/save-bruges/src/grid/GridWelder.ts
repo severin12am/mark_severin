@@ -3,8 +3,8 @@ import type { ChunkMesh } from './HexChunkGenerator';
 import { axialToCartesian, generateHexChunk, HEX_SIZE, offsetChunk, relaxChunk } from './HexChunkGenerator';
 import { centroid, vec2 } from '../core/rng';
 
-const WELD_EPS = 0.08;
-const CHUNK_RADIUS = 4;
+const WELD_EPS = 0.12;
+const CHUNK_RADIUS = 8;
 
 export function generateWorldGrid(seed: number, chunkRing = 1): GlobalGrid {
   const chunkCoords: [number, number][] = [[0, 0]];
@@ -25,8 +25,8 @@ export function generateWorldGrid(seed: number, chunkRing = 1): GlobalGrid {
   for (const [cq, cr] of chunkCoords) {
     const chunkOffset = axialToCartesian(cq, cr, chunkSpan);
     let mesh = generateHexChunk(CHUNK_RADIUS, seed + cq * 997 + cr * 991);
-    relaxChunk(mesh, 12, 0.42);
     mesh = offsetChunk(mesh, chunkOffset);
+    relaxChunk(mesh, 4, 0.18);
     rawChunks.push({ mesh, offset: chunkOffset, cq, cr });
   }
 
@@ -35,10 +35,9 @@ export function generateWorldGrid(seed: number, chunkRing = 1): GlobalGrid {
 
 function weldChunks(
   chunks: { mesh: ChunkMesh; cq: number; cr: number }[],
-  seed: number,
+  _seed: number,
 ): GlobalGrid {
   const globalVerts: Vec2[] = [];
-  const vertRemap = new Map<string, number>();
 
   const findOrCreate = (v: Vec2): number => {
     for (let i = 0; i < globalVerts.length; i++) {
@@ -61,10 +60,8 @@ function weldChunks(
   for (const { mesh, cq, cr } of chunks) {
     const localRemap = new Map<number, number>();
     for (let i = 0; i < mesh.vertices.length; i++) {
-      const key = `${cq},${cr},${i}`;
       const welded = findOrCreate(mesh.vertices[i]);
       localRemap.set(i, welded);
-      vertRemap.set(key, welded);
     }
     for (const face of mesh.faces) {
       allFaces.push({
@@ -74,10 +71,13 @@ function weldChunks(
     }
   }
 
-  globalRelax(globalVerts, allFaces, 4, 0.22);
+  globalRelax(globalVerts, allFaces, 1, 0.08);
+  const welded = snapWeld(globalVerts, allFaces, 0.05);
+  const vertices = welded.vertices;
+  const faces = welded.faces;
 
-  const cells: Cell[] = allFaces.map((face, idx) => {
-    const worldVerts = face.vertIndices.map(vi => globalVerts[vi]);
+  const cells: Cell[] = faces.map((face, idx) => {
+    const worldVerts = face.vertIndices.map(vi => vertices[vi]);
     const c = centroid(worldVerts);
     return {
       id: `cell-${idx}`,
@@ -85,7 +85,7 @@ function weldChunks(
       centroid: c,
       neighbors: [] as string[],
       layer: 0,
-      elevation: simplexElevation(c.x, c.y, seed) * 0.15,
+      elevation: 0,
       state: {
         occupancy: 'empty' as Occupancy,
         height: 0,
@@ -93,9 +93,62 @@ function weldChunks(
     };
   });
 
-  buildNeighborGraph(cells);
+  buildNeighborGraph(cells, vertices);
 
-  return { vertices: globalVerts, cells };
+  return { vertices, cells };
+}
+
+function snapWeld(
+  vertices: Vec2[],
+  faces: { vertIndices: number[]; chunkKey: string }[],
+  eps: number,
+): { vertices: Vec2[]; faces: { vertIndices: number[]; chunkKey: string }[] } {
+  const parent = vertices.map((_, i) => i);
+  const find = (i: number): number => {
+    while (parent[i] !== i) {
+      parent[i] = parent[parent[i]];
+      i = parent[i];
+    }
+    return i;
+  };
+  for (let i = 0; i < vertices.length; i++) {
+    for (let j = i + 1; j < vertices.length; j++) {
+      if (Math.hypot(vertices[i].x - vertices[j].x, vertices[i].y - vertices[j].y) < eps) {
+        const a = find(i);
+        const b = find(j);
+        if (a !== b) parent[a] = b;
+      }
+    }
+  }
+  const groups = new Map<number, number[]>();
+  for (let i = 0; i < vertices.length; i++) {
+    const p = find(i);
+    if (!groups.has(p)) groups.set(p, []);
+    groups.get(p)!.push(i);
+  }
+  const nextVerts: Vec2[] = [];
+  const remap = new Array<number>(vertices.length);
+  for (const members of groups.values()) {
+    let x = 0, y = 0;
+    for (const i of members) {
+      x += vertices[i].x;
+      y += vertices[i].y;
+    }
+    const idx = nextVerts.length;
+    nextVerts.push({ x: x / members.length, y: y / members.length });
+    for (const i of members) remap[i] = idx;
+  }
+  const nextFaces: { vertIndices: number[]; chunkKey: string }[] = [];
+  for (const face of faces) {
+    const idx: number[] = [];
+    for (const vi of face.vertIndices) {
+      const r = remap[vi];
+      if (idx[idx.length - 1] !== r) idx.push(r);
+    }
+    if (idx.length > 1 && idx[0] === idx[idx.length - 1]) idx.pop();
+    if (idx.length >= 3) nextFaces.push({ vertIndices: idx, chunkKey: face.chunkKey });
+  }
+  return { vertices: nextVerts, faces: nextFaces };
 }
 
 function globalRelax(
@@ -151,7 +204,8 @@ function findBorderVerts(vertices: Vec2[]): Set<number> {
 }
 
 function buildNeighborGraph(
-  cells: { id: string; vertIndices: number[]; neighbors: string[] }[],
+  cells: { id: string; vertIndices: number[]; centroid?: Vec2; neighbors: string[] }[],
+  vertices: Vec2[],
 ): void {
   const edgeToCell = new Map<string, string>();
   for (const cell of cells) {
@@ -170,14 +224,43 @@ function buildNeighborGraph(
       }
     }
   }
+
+  for (let i = 0; i < cells.length; i++) {
+    const a = cells[i];
+    const ac = centroidOfIndices(a.vertIndices, vertices);
+    for (let j = i + 1; j < cells.length; j++) {
+      const b = cells[j];
+      if (a.neighbors.includes(b.id)) continue;
+      const bc = centroidOfIndices(b.vertIndices, vertices);
+      const d = Math.hypot(ac.x - bc.x, ac.y - bc.y);
+      if (d > 1.25) continue;
+      let shared = 0;
+      for (const ia of a.vertIndices) {
+        const va = vertices[ia];
+        for (const ib of b.vertIndices) {
+          const vb = vertices[ib];
+          if (Math.hypot(va.x - vb.x, va.y - vb.y) < 0.12) {
+            shared++;
+            break;
+          }
+        }
+      }
+      if (shared >= 2 || d < 0.7) {
+        a.neighbors.push(b.id);
+        b.neighbors.push(a.id);
+      }
+    }
+  }
 }
 
-function simplexElevation(x: number, y: number, seed: number): number {
-  return (
-    Math.sin(x * 1.7 + seed * 0.01) * 0.3 +
-    Math.cos(y * 2.1 + seed * 0.013) * 0.3 +
-    Math.sin((x + y) * 1.3) * 0.2
-  );
+function centroidOfIndices(idx: number[], vertices: Vec2[]): Vec2 {
+  let x = 0, y = 0;
+  for (const i of idx) {
+    x += vertices[i].x;
+    y += vertices[i].y;
+  }
+  const n = Math.max(1, idx.length);
+  return { x: x / n, y: y / n };
 }
 
 export { CHUNK_RADIUS };

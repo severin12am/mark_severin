@@ -21,6 +21,24 @@ export interface ColorNode extends HSL {
 
 export type Occupancy = 'empty' | 'water' | 'building';
 
+export type DefenseKind =
+  | 'ditch'
+  | 'moat'
+  | 'spikes'
+  | 'tower'
+  | 'militia'
+  | 'archers'
+  | 'pikemen';
+
+export interface Wound {
+  hp: number;
+  maxHp: number;
+  wet: boolean;
+  burnt: boolean;
+  burning: boolean;
+  ruined: boolean;
+}
+
 export interface CellState {
   occupancy: Occupancy;
   height: number;
@@ -28,6 +46,10 @@ export interface CellState {
   buildingGroup?: number;
   seedColor?: HSL;
   seedRoofColor?: HSL;
+  ground?: 'road' | 'plaza' | 'garden';
+  defense?: DefenseKind;
+  defenseLine?: 1 | 2 | 3;
+  wound?: Wound;
 }
 
 export interface Cell {

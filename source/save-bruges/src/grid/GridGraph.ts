@@ -4,6 +4,7 @@ import { generateWorldGrid } from './GridWelder';
 export class GridGraph {
   readonly grid: GlobalGrid;
   readonly cellMap = new Map<CellId, Cell>();
+  hillAt: (x: number, y: number) => number = () => 0;
 
   constructor(seed: number) {
     this.grid = generateWorldGrid(seed, 0);

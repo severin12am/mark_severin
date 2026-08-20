@@ -2,8 +2,7 @@ import type { Vec2 } from '../core/types';
 import { SeededRng, centroid, lerp, shuffle, vec2 } from '../core/rng';
 
 const HEX_SIZE = 1.0;
-const MERGE_PROB = 0.58;
-const JITTER = 0.07;
+const JITTER = 0.04;
 
 export interface RawFace {
   vertIndices: number[];
@@ -15,17 +14,8 @@ export interface ChunkMesh {
   borderVertIndices: Set<number>;
 }
 
-interface Triangle {
-  id: number;
-  verts: [number, number, number];
-}
-
 function axialToCartesian(q: number, r: number, size: number): Vec2 {
   return vec2(size * 1.5 * q, size * Math.sqrt(3) * (r + q / 2));
-}
-
-function edgeKey(a: number, b: number): string {
-  return a < b ? `${a}|${b}` : `${b}|${a}`;
 }
 
 function hexDisk(radius: number): [number, number][] {
@@ -38,48 +28,22 @@ function hexDisk(radius: number): [number, number][] {
   return coords;
 }
 
-function cornerKey(q: number, r: number, corner: number): string {
-  const dirs = [
-    [1, 0], [1, -1], [0, -1], [-1, 0], [-1, 1], [0, 1],
-  ];
-  const [dq, dr] = dirs[corner];
-  return `${q + dq},${r + dr},${corner}`;
-}
-
 function hexCornerOffset(corner: number, size: number): Vec2 {
-  const angle = (Math.PI / 180) * (60 * corner - 30);
+  const angle = (Math.PI / 180) * (60 * corner);
   return vec2(Math.cos(angle) * size, Math.sin(angle) * size);
-}
-
-function isConvexQuad(verts: Vec2[]): boolean {
-  if (verts.length !== 4) return false;
-  let sign = 0;
-  for (let i = 0; i < 4; i++) {
-    const a = verts[i];
-    const b = verts[(i + 1) % 4];
-    const c = verts[(i + 2) % 4];
-    const cross = (b.x - a.x) * (c.y - b.y) - (b.y - a.y) * (c.x - b.x);
-    if (Math.abs(cross) < 1e-6) return false;
-    if (sign === 0) sign = Math.sign(cross);
-    else if (Math.sign(cross) !== sign) return false;
-  }
-  return true;
-}
-
-function quadAspectRatio(verts: Vec2[]): number {
-  const edges = [
-    dist(verts[0], verts[1]),
-    dist(verts[1], verts[2]),
-    dist(verts[2], verts[3]),
-    dist(verts[3], verts[0]),
-  ];
-  const max = Math.max(...edges);
-  const min = Math.min(...edges);
-  return min > 0 ? max / min : Infinity;
 }
 
 function dist(a: Vec2, b: Vec2): number {
   return Math.hypot(a.x - b.x, a.y - b.y);
+}
+
+function orderRing(indices: number[], vertices: Vec2[]): number[] {
+  const c = centroid(indices.map(i => vertices[i]));
+  return [...indices].sort((a, b) => {
+    const aa = Math.atan2(vertices[a].y - c.y, vertices[a].x - c.x);
+    const bb = Math.atan2(vertices[b].y - c.y, vertices[b].x - c.x);
+    return aa - bb;
+  });
 }
 
 export function generateHexChunk(radius: number, seed: number): ChunkMesh {
@@ -93,110 +57,68 @@ export function generateHexChunk(radius: number, seed: number): ChunkMesh {
   const getOrCreateVertex = (key: string, pos: Vec2, isBorder: boolean): number => {
     if (vertexMap.has(key)) return vertexMap.get(key)!;
     const idx = vertices.length;
-    const jittered = vec2(
+    vertices.push(vec2(
       pos.x + (rng.next() - 0.5) * JITTER,
       pos.y + (rng.next() - 0.5) * JITTER,
-    );
-    vertices.push(jittered);
+    ));
     vertexMap.set(key, idx);
     if (isBorder) borderVertIndices.add(idx);
     return idx;
   };
 
-  const centerIndices = new Map<string, number>();
+  const hexFaces: { q: number; r: number; vertIndices: number[] }[] = [];
+  const hexIndex = new Map<string, number>();
+
   for (const [q, r] of hexes) {
-    const pos = axialToCartesian(q, r, HEX_SIZE);
     const isBorder = Math.abs(q) === radius || Math.abs(r) === radius || Math.abs(-q - r) === radius;
-    const idx = getOrCreateVertex(`c:${q},${r}`, pos, isBorder);
-    centerIndices.set(`${q},${r}`, idx);
-  }
-
-  const cornerIndices = new Map<string, number>();
-  for (const [q, r] of hexes) {
+    const pos = axialToCartesian(q, r, HEX_SIZE);
+    const vertIndices: number[] = [];
     for (let c = 0; c < 6; c++) {
-      const pos = axialToCartesian(q, r, HEX_SIZE);
-      const offset = hexCornerOffset(c, HEX_SIZE * 0.95);
+      const offset = hexCornerOffset(c, HEX_SIZE);
       const cornerPos = vec2(pos.x + offset.x, pos.y + offset.y);
-      const key = cornerKey(q, r, c);
-      const isBorder = Math.abs(q) === radius || Math.abs(r) === radius || Math.abs(-q - r) === radius;
-      cornerIndices.set(key, getOrCreateVertex(`k:${key}`, cornerPos, isBorder));
+      const key = `p:${Math.round(cornerPos.x * 50)},${Math.round(cornerPos.y * 50)}`;
+      vertIndices.push(getOrCreateVertex(key, cornerPos, isBorder));
     }
+    hexIndex.set(`${q},${r}`, hexFaces.length);
+    hexFaces.push({ q, r, vertIndices });
   }
 
-  const triangles: Triangle[] = [];
-  let triId = 0;
-  for (const [q, r] of hexes) {
-    const center = centerIndices.get(`${q},${r}`)!;
-    for (let c = 0; c < 6; c++) {
-      const k0 = cornerKey(q, r, c);
-      const k1 = cornerKey(q, r, (c + 1) % 6);
-      const v0 = cornerIndices.get(k0)!;
-      const v1 = cornerIndices.get(k1)!;
-      triangles.push({ id: triId++, verts: [center, v0, v1] });
-    }
-  }
+  const used = new Set<number>();
+  const faces: RawFace[] = [];
+  const dirs: [number, number][] = [[1, 0], [1, -1], [0, -1], [-1, 0], [-1, 1], [0, 1]];
+  const order = shuffle(hexFaces.map((_, i) => i), rng);
 
-  const mergedFaces: RawFace[] = [];
-  const usedTris = new Set<number>();
-  const edgeToTri = new Map<string, number[]>();
-
-  for (const tri of triangles) {
-    const [a, b, c] = tri.verts;
-    for (const [e0, e1] of [[a, b], [b, c], [c, a]] as [number, number][]) {
-      const ek = edgeKey(e0, e1);
-      if (!edgeToTri.has(ek)) edgeToTri.set(ek, []);
-      edgeToTri.get(ek)!.push(tri.id);
-    }
-  }
-
-  const mergeCandidates: [Triangle, Triangle][] = [];
-  for (const tri of triangles) {
-    const [a, b, c] = tri.verts;
-    for (const [e0, e1] of [[a, b], [b, c], [c, a]] as [number, number][]) {
-      const ek = edgeKey(e0, e1);
-      const neighbors = edgeToTri.get(ek) ?? [];
-      for (const nid of neighbors) {
-        if (nid === tri.id) continue;
-        mergeCandidates.push([tri, triangles[nid]]);
+  for (const i of order) {
+    if (used.has(i)) continue;
+    const hex = hexFaces[i];
+    let merged = false;
+    if (rng.chance(0.28)) {
+      for (const [dq, dr] of dirs) {
+        const ni = hexIndex.get(`${hex.q + dq},${hex.r + dr}`);
+        if (ni == null || used.has(ni)) continue;
+        const other = hexFaces[ni];
+        const combined = [...new Set([...hex.vertIndices, ...other.vertIndices])];
+        if (combined.length < 8) continue;
+        const ring = orderRing(combined, vertices);
+        let minE = Infinity;
+        for (let k = 0; k < ring.length; k++) {
+          minE = Math.min(minE, dist(vertices[ring[k]], vertices[ring[(k + 1) % ring.length]]));
+        }
+        if (minE < 0.25) continue;
+        faces.push({ vertIndices: ring });
+        used.add(i);
+        used.add(ni);
+        merged = true;
         break;
       }
     }
+    if (!merged) {
+      used.add(i);
+      faces.push({ vertIndices: [...hex.vertIndices] });
+    }
   }
 
-  const shuffled = shuffle(mergeCandidates, rng);
-  for (const [tA, tB] of shuffled) {
-    if (usedTris.has(tA.id) || usedTris.has(tB.id)) continue;
-    if (!rng.chance(MERGE_PROB)) continue;
-
-    const shared = tA.verts.filter(v => tB.verts.includes(v));
-    if (shared.length !== 2) continue;
-    const unique = [...new Set([...tA.verts, ...tB.verts])];
-    if (unique.length !== 4) continue;
-
-    const ordered = orderQuadIndices(unique, vertices);
-    const quadVerts = ordered.map(i => vertices[i]);
-    if (!isConvexQuad(quadVerts) || quadAspectRatio(quadVerts) > 2.8) continue;
-
-    mergedFaces.push({ vertIndices: ordered });
-    usedTris.add(tA.id);
-    usedTris.add(tB.id);
-  }
-
-  for (const tri of triangles) {
-    if (usedTris.has(tri.id)) continue;
-    mergedFaces.push({ vertIndices: [...tri.verts] });
-  }
-
-  return { vertices, faces: mergedFaces, borderVertIndices };
-}
-
-function orderQuadIndices(indices: number[], vertices: Vec2[]): number[] {
-  const c = centroid(indices.map(i => vertices[i]));
-  return [...indices].sort((a, b) => {
-    const aa = Math.atan2(vertices[a].y - c.y, vertices[a].x - c.x);
-    const bb = Math.atan2(vertices[b].y - c.y, vertices[b].x - c.x);
-    return aa - bb;
-  });
+  return { vertices, faces, borderVertIndices };
 }
 
 export function relaxChunk(

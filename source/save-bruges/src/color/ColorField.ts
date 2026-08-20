@@ -76,6 +76,6 @@ export class ColorField {
       }
     }
     const map = new Map(grid.cells.map(c => [c.id, c]));
-    this.diffuse(map, 5);
+    this.diffuse(map, 0);
   }
 }

@@ -133,8 +133,8 @@ window.GAME_CATALOG = {
       "languages": ["ru", "en"],
       "title": { "ru": "Спасти Брюгге", "en": "Save Bruges" },
       "description": {
-        "ru": "Стратегия и защита города — удержите Брюгге от нашествия.",
-        "en": "Strategy and city defense — hold Bruge against the invasion."
+        "ru": "Бумажный Брюгге — ставьте рвы и башни и удержите город три волны.",
+        "en": "Paper Bruges — place ditches and towers, then hold the town through three waves."
       },
       "tags": ["strategy"],
       "featured": false,
