@@ -3,6 +3,26 @@
   to = "/"
   status = 301
 
+[[redirects]]
+  from = "/index-classic.html"
+  to = "/"
+  status = 301
+
+[[redirects]]
+  from = "/index-v2.html"
+  to = "/"
+  status = 301
+
+[[redirects]]
+  from = "/index-v4.html"
+  to = "/"
+  status = 301
+
+[[redirects]]
+  from = "/index-v5.html"
+  to = "/"
+  status = 301
+
 [build]
   publish = "."
 
