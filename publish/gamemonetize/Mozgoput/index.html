@@ -379,6 +379,27 @@ body{
 }
 .type-input::placeholder{color:var(--ink-light);opacity:.6}
 .type-input:focus{border-bottom-color:var(--accent)}
+.type-input.hint-reveal{
+  border-bottom-color:var(--success)!important;
+  animation:hintPulse 1.2s ease-in-out;
+}
+.type-input.hint-reveal::placeholder{
+  color:var(--success);
+  opacity:1;
+  font-weight:700;
+  font-size:1.55rem;
+}
+.hint-banner{
+  display:none;
+  text-align:center;
+  font-family:var(--ft);
+  font-size:1.35rem;
+  font-weight:700;
+  color:var(--success);
+  margin:.15rem 0 .25rem;
+}
+.hint-banner.visible{display:block}
+.hint-banner.hint-error{color:var(--accent)}
 .btn-submit{
   font-family:var(--ft);font-size:1.2rem;font-weight:700;
   padding:.3rem 1rem;cursor:pointer;
@@ -595,6 +616,7 @@ body{
       <div class="tape-strip tape-center"></div>
       <div id="singleSelection">
         <div class="selection-label" id="selectionLabel">Pick an association:</div>
+        <div id="hintBanner" class="hint-banner" role="status" aria-live="polite"></div>
         <div class="cards-grid" id="cardsGrid"></div>
         <div class="type-area" id="typeArea" style="display:none">
           <input class="type-input" id="typeInput" placeholder="type a word..." autocomplete="off" autocapitalize="off">
@@ -716,6 +738,8 @@ const I18N = {
     gaveUp: '🏳 Gave up',
     shortest: function(n){ return 'Shortest path (' + n + ' steps):'; },
     noPair: 'Could not pick a word pair',
+    hintDeadEnd: 'No path from this word to the goal. Undo a move or start a new round.',
+    hintTry: function(w){ return 'Hint: ' + w; },
     fallbackA: 'word',
     fallbackB: 'world'
   },
@@ -765,6 +789,8 @@ const I18N = {
     gaveUp: '🏳 Сдался',
     shortest: function(n){ return 'Кратчайший путь (' + n + ' шагов):'; },
     noPair: 'Не удалось подобрать пару слов',
+    hintDeadEnd: 'Из этого слова нет пути к цели. Отмени ход или начни новый раунд.',
+    hintTry: function(w){ return 'Подсказка: ' + w; },
     fallbackA: 'слово',
     fallbackB: 'мир'
   }
@@ -957,6 +983,8 @@ function startGame(){
   G.batch=[];G.batch1=[];G.batch2=[];
   G.focusIdx=G.focusIdx1=G.focusIdx2=0;
   G.triedWrong=new Set();
+  const hb=$('hintBanner');
+  if(hb){hb.classList.remove('visible','hint-error');hb.textContent='';}
 
   const is2P=G.players===2;
   const is2=$('score2'),ti=$('turnIndicator'),cp2=$('chainPanel2'),cd=$('chainDivider');
@@ -1028,15 +1056,18 @@ function findBestPath(a,b){
 }
 
 /* ============ BATCH GENERATION ============ */
+function neighborKeys(word){
+  const nb=BI[word];
+  if(!nb)return[];
+  return Array.isArray(nb)?nb.slice():Object.keys(nb);
+}
+
 function genBatch(){
   const cur=currentWord();
-  const nbKeys=BI[cur]?Object.keys(BI[cur]):[];
-  const allNb=nbKeys.filter(function(w){return!currentP().chain.includes(w)});
+  const allNb=neighborKeys(cur).filter(function(w){return!currentP().chain.includes(w)});
   let picks=[];
-  if(G.bestPathCache&&G.bestPathCache.length>currentP().chain.length+1){
-    const next=G.bestPathCache[currentP().chain.length+1];
-    if(allNb.includes(next))picks.push(next);
-  }
+  const optFromHere=findBestPath(cur,G.goalWord);
+  if(optFromHere&&optFromHere.length>1&&allNb.includes(optFromHere[1]))picks.push(optFromHere[1]);
   if(allNb.includes(G.goalWord))picks.push(G.goalWord);
   const target=Math.max(picks.length,4);
   const rest=shuffle(allNb.filter(function(w){return!picks.includes(w)}));
@@ -1054,13 +1085,10 @@ function genDualBatches(){genBatchForPlayer(0);genBatchForPlayer(1);}
 
 function genBatchForPlayer(pi){
   const p=G.p[pi];const cur=currentWordForPlayer(pi);
-  const nbKeys=BI[cur]?Object.keys(BI[cur]):[];
-  const allNb=nbKeys.filter(function(w){return!p.chain.includes(w)});
+  const allNb=neighborKeys(cur).filter(function(w){return!p.chain.includes(w)});
   let picks=[];
-  if(G.bestPathCache&&G.bestPathCache.length>p.chain.length+1){
-    const next=G.bestPathCache[p.chain.length+1];
-    if(allNb.includes(next))picks.push(next);
-  }
+  const optFromHere=findBestPath(cur,G.goalWord);
+  if(optFromHere&&optFromHere.length>1&&allNb.includes(optFromHere[1]))picks.push(optFromHere[1]);
   if(allNb.includes(G.goalWord))picks.push(G.goalWord);
   const target=Math.max(picks.length,3);
   const rest=shuffle(allNb.filter(function(w){return!picks.includes(w)}));
@@ -1296,25 +1324,111 @@ function displayResult(){
 }
 
 /* ============ HINT ============ */
-function showHint(){
-  if(YM.isAdShowing)return;sndClick();
-  const p=currentP();const path=G.bestPathCache;
-  if(!path||path.length<=p.chain.length+1)return;
-  const nextHintWord=path[p.chain.length+1];
-  if(G.mode==='choose'){
-    let grid,batch;
-    if(G.players===1){grid=$('cardsGrid');batch=G.batch;}
-    else{grid=G.currentPlayer===0?$('cardsGrid1'):$('cardsGrid2');batch=G.currentPlayer===0?G.batch1:G.batch2;}
-    const idx=batch.indexOf(nextHintWord);
-    if(idx!==-1&&grid.children[idx]){
-      const card=grid.children[idx];card.classList.add('hint-flash');
-      setTimeout(function(){card.classList.remove('hint-flash')},2200);
+function stitchPathCache(fromPath){
+  const p=currentP();
+  G.bestPathCache=[G.startWord].concat(p.chain).concat(fromPath.slice(1));
+}
+
+function resolveHintWord(){
+  const cur=currentWord();
+  const p=currentP();
+  const used=new Set(p.chain);
+
+  const path=findBestPath(cur,G.goalWord);
+  if(path&&path.length>=2){
+    const next=path[1];
+    if(next&&!used.has(next)){
+      stitchPathCache(path);
+      return next;
     }
-  }else if(G.mode==='type'){
-    const input=$('typeInput');const oldPH=input.placeholder;
-    input.placeholder=nextHintWord;input.style.borderBottomColor='var(--success)';
-    setTimeout(function(){input.placeholder=oldPH;input.style.borderBottomColor=''},2800);
   }
+
+  const nbs=neighborKeys(cur).filter(function(w){return w!==cur&&!used.has(w)});
+  for(let i=0;i<nbs.length;i++){
+    const w=nbs[i];
+    const rest=findBestPath(w,G.goalWord);
+    if(rest){
+      stitchPathCache([cur,w].concat(rest[0]===w?rest.slice(1):rest));
+      return w;
+    }
+  }
+  return null;
+}
+
+function replaceIndexForHint(batch,cur){
+  const nb=new Set(neighborKeys(cur));
+  for(let i=batch.length-1;i>=0;i--){
+    if(!nb.has(batch[i])&&batch[i]!==G.goalWord)return i;
+  }
+  for(let i=0;i<batch.length;i++){
+    if(G.triedWrong.has(batch[i]))return i;
+  }
+  return batch.length?batch.length-1:0;
+}
+
+function flashHintBanner(text,isError){
+  const el=$('hintBanner');
+  if(!el)return;
+  el.textContent=text;
+  el.classList.toggle('hint-error',!!isError);
+  el.classList.add('visible');
+  clearTimeout(flashHintBanner._t);
+  flashHintBanner._t=setTimeout(function(){
+    el.classList.remove('visible','hint-error');
+    el.textContent='';
+  },4000);
+}
+
+function applyChooseHint(hintWord){
+  const cur=currentWord();
+  const is1p=G.players===1;
+  const batch=is1p?G.batch:(G.currentPlayer===0?G.batch1:G.batch2);
+  if(!batch.length)batch.push(hintWord);
+  let idx=batch.indexOf(hintWord);
+  if(idx===-1){
+    idx=replaceIndexForHint(batch,cur);
+    batch[idx]=hintWord;
+  }
+  G.triedWrong.delete(hintWord);
+  if(is1p)G.focusIdx=idx;
+  else if(G.currentPlayer===0)G.focusIdx1=idx;
+  else G.focusIdx2=idx;
+  if(is1p)renderCards();else renderDualCards();
+  const grid=is1p?$('cardsGrid'):(G.currentPlayer===0?$('cardsGrid1'):$('cardsGrid2'));
+  const card=grid&&grid.children[idx];
+  if(card){
+    card.classList.add('hint-flash');
+    setTimeout(function(){card.classList.remove('hint-flash')},2200);
+  }
+}
+
+function applyTypeHint(hintWord){
+  const input=$('typeInput');
+  if(!input)return;
+  const oldPH=input.placeholder;
+  input.placeholder=hintWord;
+  input.classList.add('hint-reveal');
+  input.style.borderBottomColor='var(--success)';
+  clearTimeout(applyTypeHint._t);
+  applyTypeHint._t=setTimeout(function(){
+    input.placeholder=oldPH;
+    input.classList.remove('hint-reveal');
+    input.style.borderBottomColor='';
+  },4000);
+}
+
+function showHint(){
+  if(YM.isAdShowing)return;
+  sndClick();
+  const hintWord=resolveHintWord();
+  if(!hintWord){
+    flashHintBanner(S.hintDeadEnd,true);
+    showModal(S.hintDeadEnd);
+    return;
+  }
+  flashHintBanner(S.hintTry(hintWord),false);
+  if(G.mode==='choose')applyChooseHint(hintWord);
+  else applyTypeHint(hintWord);
 }
 
 /* ============ KEYBOARD NAVIGATION ============ */
