@@ -17,10 +17,10 @@ python3 -m http.server 8000
 
 GameMonetize pack (same play, plus SDK scripts): http://localhost:8000/publish/gamemonetize/Mozgoput/
 
-## Lest (Word Ladder)
+## Lest (Letter Ladder)
 
 1. Open http://localhost:8000/games/Lest/
-2. Confirm English menu: **Word Ladder**, Play, word counts in the thousands.
+2. Confirm English menu: **Letter Ladder**, Play, word counts in the thousands.
 3. Console should stay clean.
 4. Play length 4, Medium. Start/goal are English. Change exactly one letter per step; Submit accepts dictionary words only.
 5. Try Hint, then Give up — solution overlay is English.

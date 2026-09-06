@@ -75,10 +75,11 @@ window.GAME_CATALOG = {
     {
       "id": "lest",
       "folder": "Lest",
-      "languages": ["ru"],
-      "title": { "ru": "Лест - буква за буквой" },
+      "languages": ["ru", "en"],
+      "title": { "ru": "Лестница — буква за буквой", "en": "Letter Ladder" },
       "description": {
-        "ru": "Словесная лестница — строй цепочки русских слов, меняя по одной букве за шаг."
+        "ru": "Словесная лестница — строй цепочки слов, меняя по одной букве за шаг.",
+        "en": "Letter ladder — change one letter at a time to turn one word into another."
       },
       "tags": ["words", "puzzle"],
       "featured": false,

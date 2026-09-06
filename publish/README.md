@@ -36,7 +36,7 @@ publish/
 3. **Rotatris** (Ротатрис) - Rotating Tetris variant
 4. **Nucleon** (Нуклеон) - Atom-splitting physics puzzler
 5. **Mozgoput** (Мозгопут) - Word association game (English default, Russian optional)
-6. **Lest** (Лестница) - Word ladder puzzle (English default, Russian optional)
+6. **Lest** (Лестница / Letter Ladder) - Letter-by-letter word puzzle (English default, Russian optional)
 
 ---
 
