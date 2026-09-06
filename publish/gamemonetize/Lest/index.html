@@ -633,5 +633,32 @@ initSDK().then(()=>{if(loadWords()){sdkReady();render()}});
 
 })();
 </script>
+<script src="gm-config.js"></script>
+<script>
+window.SDK_OPTIONS = {
+  gameId: window.GM_GAME_ID || 'REPLACE_WITH_GAMEMONETIZE_GAME_ID',
+  onEvent: function(event) {
+    if (!event || !event.name) return;
+    try {
+      if (event.name === 'SDK_GAME_PAUSE') {
+        if (typeof window.gmPauseGame === 'function') window.gmPauseGame();
+      } else if (event.name === 'SDK_GAME_START') {
+        if (typeof window.gmResumeGame === 'function') window.gmResumeGame();
+      }
+    } catch (e) {}
+  }
+};
+window.gmShowBanner = function() {
+  try {
+    if (typeof sdk !== 'undefined' && sdk && typeof sdk.showBanner === 'function') {
+      sdk.showBanner();
+    }
+  } catch (e) {}
+};
+window.addEventListener('load', function() {
+  setTimeout(function() { window.gmShowBanner(); }, 3000);
+});
+</script>
+<script src="https://api.gamemonetize.com/sdk.js"></script>
 </body>
 </html>

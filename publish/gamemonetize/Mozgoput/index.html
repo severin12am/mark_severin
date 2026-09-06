@@ -1377,5 +1377,38 @@ YM.init().then(function(){return YM.loadData()}).then(function(data){
 
 })();
 </script>
+<script src="gm-config.js"></script>
+<script>
+window.SDK_OPTIONS = {
+  gameId: window.GM_GAME_ID || 'REPLACE_WITH_GAMEMONETIZE_GAME_ID',
+  onEvent: function(event) {
+    if (!event || !event.name) return;
+    try {
+      if (event.name === 'SDK_GAME_PAUSE') {
+        if (typeof YM !== 'undefined') {
+          YM.isAdShowing = true;
+          if (typeof YM.pauseAudio === 'function') YM.pauseAudio();
+        }
+      } else if (event.name === 'SDK_GAME_START') {
+        if (typeof YM !== 'undefined') {
+          YM.isAdShowing = false;
+          if (typeof YM.resumeAudio === 'function') YM.resumeAudio();
+        }
+      }
+    } catch (e) {}
+  }
+};
+window.gmShowBanner = function() {
+  try {
+    if (typeof sdk !== 'undefined' && sdk && typeof sdk.showBanner === 'function') {
+      sdk.showBanner();
+    }
+  } catch (e) {}
+};
+window.addEventListener('load', function() {
+  setTimeout(function() { window.gmShowBanner(); }, 3000);
+});
+</script>
+<script src="https://api.gamemonetize.com/sdk.js"></script>
 </body>
 </html>
