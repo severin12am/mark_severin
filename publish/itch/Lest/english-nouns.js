@@ -528,7 +528,6 @@ bongos
 bongs
 bonus
 boo
-booby
 booger
 boogers
 book
@@ -1767,10 +1766,6 @@ dice
 dicer
 dices
 dickens
-dickey
-dickeys
-dicks
-dicky
 didoes
 didos
 die
@@ -5829,8 +5824,6 @@ set
 sets
 setts
 sewer
-sexes
-sexts
 shack
 shade
 shades
@@ -6049,7 +6042,6 @@ slump
 slums
 slurs
 slush
-sluts
 smack
 small
 smarm
@@ -7075,7 +7067,6 @@ whirs
 white
 whits
 whole
-whores
 whorl
 wicked
 wicker

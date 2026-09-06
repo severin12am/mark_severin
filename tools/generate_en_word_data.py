@@ -35,14 +35,15 @@ STOP = {
 # Keep the default EN path family-friendly for GameMonetize.
 BLOCK = {
     "anal", "anus", "arse", "ass", "asses", "asshole", "bastard", "bitch", "bloody",
-    "blowjob", "bollock", "boner", "boob", "boobs", "bugger", "butt", "clit",
+    "blowjob", "bollock", "boner", "boob", "boobs", "booby", "bugger", "butt", "clit",
     "clitoris", "cock", "cocks", "coon", "crap", "cum", "cunt", "damn", "dick",
-    "dildo", "dyke", "fag", "faggot", "feck", "felch", "fuck", "fucker", "fucking",
-    "goddamn", "hell", "homo", "horny", "jerk", "jizz", "kike", "labia", "lmfao",
-    "muff", "nigger", "nigga", "omg", "penis", "piss", "poop", "porn", "pube",
-    "pussy", "queer", "rape", "rapist", "rectum", "retard", "scrotum", "sex",
-    "sexy", "shit", "slut", "smegma", "spunk", "suck", "tits", "tit", "tosser",
-    "turd", "twat", "vagina", "wank", "whore", "wtf", "darn", "crap", "pissed",
+    "dicks", "dicky", "dickey", "dickeys", "dildo", "dildos", "dyke", "fag", "faggot",
+    "feck", "felch", "fuck", "fucker", "fucking", "goddamn", "hell", "homo", "horny",
+    "jerk", "jizz", "kike", "labia", "lmfao", "muff", "nigger", "nigga", "omg",
+    "penis", "piss", "poop", "porn", "pube", "pussy", "queer", "rape", "rapist",
+    "rectum", "retard", "scrotum", "sex", "sexes", "sexy", "sexual", "sext", "sexts",
+    "shit", "slut", "sluts", "smegma", "spunk", "suck", "tits", "tit", "tosser",
+    "turd", "twat", "vagina", "wank", "whore", "whores", "wtf", "darn", "pissed",
     "sperm", "semen", "orgasm", "erotic", "nude", "naked", "xxx",
 }
 
@@ -236,7 +237,7 @@ def clean_token(w: str) -> str | None:
         return None
     if w in STOP or w in BLOCK:
         return None
-    if any(bad in w for bad in ("fuck", "shit", "cock", "cunt", "nigg", "porn")):
+    if any(bad in w for bad in ("fuck", "shit", "cock", "cunt", "nigg", "porn", "dicks", "pussy", "whore", "slut", "jizz", "boob", "dildo")):
         return None
     return w
 
