@@ -19,7 +19,8 @@ window.GM_GAME_ID = 'abc123def456';
 ## Features
 
 - Ads pause/resume game automatically
-- Banner ads display after completing a chain
+- Banner ads display after a round ends (and once after load)
+- English is the default language; Russian via EN/RU toggle or `?lang=ru`
 - No changes to core gameplay
 
 ## Upload

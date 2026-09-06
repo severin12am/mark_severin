@@ -1,17 +1,41 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<title>Лест - буква за буквой</title>
-<script src="russian-nouns.js"></script>
+<title>Word Ladder — letter by letter</title>
+<script>
+window.GAME_LANG = (function(){
+  try {
+    var q = new URLSearchParams(location.search).get('lang');
+    if (q === 'ru' || q === 'en') {
+      try { localStorage.setItem('lest_lang', q); } catch (e) {}
+      return q;
+    }
+    var s = localStorage.getItem('lest_lang');
+    if (s === 'ru' || s === 'en') return s;
+  } catch (e) {}
+  return 'en';
+})();
+document.documentElement.lang = window.GAME_LANG === 'ru' ? 'ru' : 'en';
+</script>
+<script>
+(function () {
+  var ru = window.GAME_LANG === 'ru';
+  document.write('<script src="' + (ru ? 'russian-nouns.js' : 'english-nouns.js') + '"><\/script>');
+})();
+</script>
 <style>
 *,*::before,*::after{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
 html,body{height:100%;overflow:hidden;touch-action:manipulation;overscroll-behavior:none}
 body{font-family:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;background:#f8f1e3;color:#2c2418;display:flex;flex-direction:column;align-items:center}
 #root{width:100%;max-width:460px;height:100%;display:flex;flex-direction:column;overflow:hidden}
-.hdr{display:flex;justify-content:space-between;align-items:center;padding:6px 14px;flex-shrink:0}
-.hdr h1{font-size:1.25rem;font-weight:800;color:#2a5d4e}
+.hdr{display:flex;justify-content:space-between;align-items:center;padding:6px 14px;flex-shrink:0;gap:8px}
+.hdr h1{font-size:1.25rem;font-weight:800;color:#2a5d4e;flex:1}
+.hdr-right{display:flex;gap:6px;align-items:center}
+.lang-toggle{display:flex;border:1.5px solid #e0d5c1;border-radius:10px;overflow:hidden;background:#fffdf7}
+.lang-toggle button{border:none;background:transparent;padding:6px 8px;font-size:.75rem;font-weight:700;cursor:pointer;color:#9a8e7e}
+.lang-toggle button.on{background:#2a5d4e;color:#fff}
 .ib{width:36px;height:36px;border:none;background:#fffdf7;border-radius:10px;cursor:pointer;display:grid;place-items:center;font-size:1.1rem;color:#2c2418;box-shadow:0 1px 4px rgba(44,36,24,.07)}
 .ib:active{transform:scale(.9)}
 #app{flex:1;display:flex;flex-direction:column;overflow:hidden}
@@ -113,22 +137,125 @@ body{font-family:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;background
 </head>
 <body>
 <div id="root">
-<header class="hdr"><h1>Лест - буква за буквой</h1><button class="ib" id="sndB">🔊</button></header>
+<header class="hdr"><h1 id="hdrTitle">Word Ladder</h1><div class="hdr-right"><div class="lang-toggle" id="langToggle"><button data-lang="en" id="langEn">EN</button><button data-lang="ru" id="langRu">RU</button></div><button class="ib" id="sndB">🔊</button></div></header>
 <main id="app"></main>
 </div>
-<div class="mo" id="winMo"><div class="mc"><div class="me">🎉</div><h2>Великолепно!</h2><p id="winT"></p><div id="winScore"></div><button class="mb" id="winN">Следующая</button><button class="mb mb2" id="winM">В меню</button></div></div>
-<div class="mo" id="givMo"><div class="mc"><div class="me">🤔</div><h2>Решение</h2><div class="sp" id="solP"></div><div class="sf" id="solF"></div><button class="mb" id="givN">Следующая</button><button class="mb mb2" id="givM">В меню</button></div></div>
+<div class="mo" id="winMo"><div class="mc"><div class="me">🎉</div><h2 id="winH">Brilliant!</h2><p id="winT"></p><div id="winScore"></div><button class="mb" id="winN">Next</button><button class="mb mb2" id="winM">Menu</button></div></div>
+<div class="mo" id="givMo"><div class="mc"><div class="me">🤔</div><h2 id="givH">Solution</h2><div class="sp" id="solP"></div><div class="sf" id="solF"></div><button class="mb" id="givN">Next</button><button class="mb mb2" id="givM">Menu</button></div></div>
 <div class="cf" id="cfB"></div>
 <div class="toast" id="toast"></div>
 <script>
 (function(){
 'use strict';
 
-const ABC='абвгдеёжзийклмнопрстуфхцчшщъыьэюя'.split('');
+const LANG = window.GAME_LANG === 'ru' ? 'ru' : 'en';
+const I18N = {
+  en: {
+    title: 'Word Ladder — letter by letter',
+    hdr: 'Word Ladder',
+    winH: 'Brilliant!',
+    givH: 'Solution',
+    next: 'Next',
+    menu: 'Menu',
+    menuTitle: 'Word Ladder — letter by letter',
+    menuSub: 'Turn one word into another, changing exactly one letter per step.',
+    wordLen: 'Word length',
+    difficulty: 'Difficulty',
+    play: 'Play',
+    session: 'Session score',
+    loaded: function(n){ return 'Loaded: ' + n + ' words'; },
+    start: 'Start',
+    goal: 'Goal',
+    more: function(n){ return '··· plus ' + n + ' ···'; },
+    confirm: 'Submit',
+    giveUp: 'Give up',
+    newGame: 'New',
+    min: function(txt){ return 'Minimum: ' + txt; },
+    any: ['Any','2–10'],
+    easy: ['Easy','2–3'],
+    medium: ['Medium','4–6'],
+    hard: ['Hard','7–15'],
+    moves: 'moves',
+    steps1: function(n){ return n + ' step'; },
+    steps2: function(n){ return n + ' steps'; },
+    unchanged: 'Word did not change',
+    oneLetter: 'Change exactly 1 letter',
+    notInDict: 'Word is not in the dictionary',
+    noPath: 'No path from here! Undo some steps.',
+    pathNotFound: 'Path not found',
+    optPath: function(txt){ return 'Optimal path: ' + txt; },
+    winLine: function(steps,t,mn){ return steps + ' in ' + t + (mn>0?' (min: '+mn+')':''); },
+    base: 'Base score',
+    extraSteps: function(n){ return 'Extra steps ('+n+')'; },
+    errors: function(n){ return 'Mistakes ('+n+')'; },
+    hints: function(n){ return 'Hints ('+n+')'; },
+    timeBonus: 'Time bonus',
+    diffMult: function(m){ return 'Difficulty ×'+m; },
+    lenMult: function(n,m){ return 'Length '+n+' letters ×'+m; },
+    total: 'Total',
+    missingFile: function(f){ return '<div class="em">File <b>'+f+'</b> was not found!<br><br>Create it next to index.html as:<br><code>const WORD_LIST = `<br>cat<br>cot<br>dot<br>`;</code></div>'; },
+    emptyFile: function(f){ return '<div class="em">File <b>'+f+'</b> is empty or has no usable words.</div>'; },
+    notEnough: function(n){ return '<div class="em">Not enough words of length <b>'+n+'</b>.</div><div style="text-align:center;margin-top:8px"><button class="ab ab1" id="bkM">Menu</button></div>'; },
+    noPair: function(n,f){ return '<div class="em">Could not find a pair for length <b>'+n+'</b>.<br>Add more words to '+f+'</div><div style="text-align:center;margin-top:8px"><button class="ab ab1" id="bkM">Menu</button></div>'; },
+    dictFile: 'english-nouns.js'
+  },
+  ru: {
+    title: 'Лест - буква за буквой',
+    hdr: 'Лест - буква за буквой',
+    winH: 'Великолепно!',
+    givH: 'Решение',
+    next: 'Следующая',
+    menu: 'В меню',
+    menuTitle: 'Лест - буква за буквой',
+    menuSub: 'Превратите одно слово в другое, меняя по одной букве за шаг.',
+    wordLen: 'Длина слов',
+    difficulty: 'Сложность',
+    play: 'Играть',
+    session: 'Очки за сессию',
+    loaded: function(n){ return 'Загружено: '+n+' слов'; },
+    start: 'Старт',
+    goal: 'Цель',
+    more: function(n){ return '··· ещё '+n+' ···'; },
+    confirm: 'Подтвердить',
+    giveUp: 'Сдаться',
+    newGame: 'Новая',
+    min: function(txt){ return 'Минимум: '+txt; },
+    any: ['Любая','2–10'],
+    easy: ['Легко','2–3'],
+    medium: ['Средне','4–6'],
+    hard: ['Сложно','7–15'],
+    moves: 'ходов',
+    steps1: function(n){ return n+' шаг'; },
+    steps2: function(n){ return n+' шага'; },
+    unchanged: 'Слово не изменилось',
+    oneLetter: 'Измените ровно 1 букву',
+    notInDict: 'Слова нет в словаре',
+    noPath: 'Нет пути отсюда! Отмените шаги.',
+    pathNotFound: 'Путь не найден',
+    optPath: function(txt){ return 'Оптимальный путь: '+txt; },
+    winLine: function(steps,t,mn){ return steps+' за '+t+(mn>0?' (мин: '+mn+')':''); },
+    base: 'Базовые очки',
+    extraSteps: function(n){ return 'Лишние шаги ('+n+')'; },
+    errors: function(n){ return 'Ошибки ('+n+')'; },
+    hints: function(n){ return 'Подсказки ('+n+')'; },
+    timeBonus: 'Бонус за время',
+    diffMult: function(m){ return 'Сложность ×'+m; },
+    lenMult: function(n,m){ return 'Длина '+n+' букв ×'+m; },
+    total: 'Итого',
+    missingFile: function(f){ return '<div class="em">Файл <b>'+f+'</b> не найден!<br><br>Создайте его рядом с index.html в формате:<br><code>const WORD_LIST = `<br>кот<br>кит<br>рот<br>`;</code></div>'; },
+    emptyFile: function(f){ return '<div class="em">Файл <b>'+f+'</b> пуст или не содержит подходящих слов.</div>'; },
+    notEnough: function(n){ return '<div class="em">Недостаточно слов длины <b>'+n+'</b>.</div><div style="text-align:center;margin-top:8px"><button class="ab ab1" id="bkM">В меню</button></div>'; },
+    noPair: function(n,f){ return '<div class="em">Не удалось найти пару для длины <b>'+n+'</b>.<br>Добавьте больше слов в '+f+'</div><div style="text-align:center;margin-top:8px"><button class="ab ab1" id="bkM">В меню</button></div>'; },
+    dictFile: 'russian-nouns.js'
+  }
+};
+const T = I18N[LANG];
+const ABC = (LANG === 'ru' ? 'абвгдеёжзийклмнопрстуфхцчшщъыьэюя' : 'abcdefghijklmnopqrstuvwxyz').split('');
+const WORD_RE = LANG === 'ru' ? /^[а-яё]+$/ : /^[a-z]+$/;
 let AW=[],DICT=[],DS=new Set(),N=4;
 let scr='menu',selL='4',selD='any';
 const DR={any:[2,10],easy:[2,3],medium:[4,6],hard:[7,15]};
-const DLABELS={any:['Любая','2–10'],easy:['Легко','2–3'],medium:['Средне','4–6'],hard:['Сложно','7–15']};
+const DLABELS={any:T.any,easy:T.easy,medium:T.medium,hard:T.hard};
 let sw='',tw='',mn=-1,done=[],cur=[],fi=0,won=false,gave=false,sndOn=true;
 const app=document.getElementById('app'),MAX_V=3;
 let ysdk=null,adCounter=0;
@@ -158,16 +285,16 @@ function fmtTime(s){const m=Math.floor(s/60);const ss=s%60;return m+':'+(ss<10?'
 
 function loadWords(){
   if(typeof WORD_LIST==='undefined'){
-    app.innerHTML='<div class="em">Файл <b>russian-nouns.js</b> не найден!<br><br>Создайте его рядом с index.html в формате:<br><code>const WORD_LIST = `<br>кот<br>кит<br>рот<br>`;</code></div>';
+    app.innerHTML=T.missingFile(T.dictFile);
     return false;
   }
-  const words=WORD_LIST.split(/\r?\n/).map(w=>w.trim().toLowerCase()).filter(w=>/^[а-яё]+$/.test(w)&&w.length>=3&&w.length<=7);
+  const words=WORD_LIST.split(/\r?\n/).map(w=>w.trim().toLowerCase()).filter(w=>WORD_RE.test(w)&&w.length>=3&&w.length<=7);
   AW=[...new Set(words)];
   if(AW.length===0){
-    app.innerHTML='<div class="em">Файл <b>russian-nouns.js</b> пуст или не содержит подходящих слов.</div>';
+    app.innerHTML=T.emptyFile(T.dictFile);
     return false;
   }
-  console.log('Загружено слов:',AW.length);
+  console.log('Loaded words:',AW.length);
   return true;
 }
 
@@ -177,14 +304,20 @@ function nb(w){const r=[],c=w.split('');for(let i=0;i<N;i++){const o=c[i];for(co
 function bfsA(s,mx){const v=new Map([[s,0]]);let q=[s],d=0;while(q.length&&d<mx){d++;const nq=[];for(const w of q)for(const n of nb(w))if(!v.has(n)){v.set(n,d);nq.push(n)};q=nq}return v}
 function bfsP(f,t){if(f===t)return[f];const p=new Map([[f,null]]);let q=[f];while(q.length){const nq=[];for(const w of q)for(const n of nb(w))if(!p.has(n)){p.set(n,w);if(n===t){const r=[];let c=t;while(c!==null){r.unshift(c);c=p.get(c)}return r}nq.push(n)};q=nq}return null}
 function df(a,b){let c=0;for(let i=0;i<N;i++)if(a[i]!==b[i])c++;return c}
-function pl(n){const m=n%10,h=n%100;if(m===1&&h!==11)return n+' шаг';if(m>=2&&m<=4&&(h<12||h>14))return n+' шага';return n+' шагов'}
+function pl(n){
+  if(LANG!=='ru') return n===1?T.steps1(n):T.steps2(n);
+  const m=n%10,h=n%100;
+  if(m===1&&h!==11)return n+' шаг';
+  if(m>=2&&m<=4&&(h<12||h>14))return n+' шага';
+  return n+' шагов';
+}
 function ts(){if(N<=3)return[56,'1.65rem',20,6];if(N===4)return[50,'1.5rem',18,5];if(N===5)return[44,'1.3rem',16,4];if(N===6)return[38,'1.15rem',15,4];return[34,'1.05rem',14,3]}
 
 function newGame(){
   const len=selL==='?'?(3+Math.floor(Math.random()*4)):+selL;
   N=len;filt();
   if(DICT.length<2){
-    app.innerHTML='<div class="em">Недостаточно слов длины <b>'+N+'</b>.</div><div style="text-align:center;margin-top:8px"><button class="ab ab1" id="bkM">В меню</button></div>';
+    app.innerHTML=T.notEnough(N);
     return;
   }
   won=false;gave=false;fi=0;errors=0;hintCount=0;hintSteps=new Set();
@@ -207,18 +340,23 @@ function newGame(){
     if(cd.length){const[w,d]=cd[Math.random()*cd.length|0];sw=s;tw=w;mn=d;ok=true}
   }
   if(!ok){
-    app.innerHTML='<div class="em">Не удалось найти пару для длины <b>'+N+'</b>.<br>Добавьте больше слов в russian-nouns.js</div><div style="text-align:center;margin-top:8px"><button class="ab ab1" id="bkM">В меню</button></div>';
+    app.innerHTML=T.noPair(N,T.dictFile);
     return;
   }
   done=[];cur=sw.split('');scr='game';startTimer();render();gpStart();
 }
 
+window.gmAdPaused=false;
+window.gmPauseGame=function(){window.gmAdPaused=true;stopTimer();suspendAudio();};
+window.gmResumeGame=function(){window.gmAdPaused=false;if(scr==='game'&&!won&&!gave)startTimer();resumeAudio();};
+
 function submit(){
+  if(window.gmAdPaused)return;
   if(cur.some(c=>!c))return;
   const w=cur.join(''),prev=done.length?done[done.length-1]:sw;
-  if(w===prev){toast('Слово не изменилось');S.err();shakeRow();return}
-  if(df(w,prev)!==1){errors++;updStat();toast('Измените ровно 1 букву');S.err();shakeRow();return}
-  if(!DS.has(w)){errors++;updStat();toast('Слова нет в словаре');S.err();shakeRow();return}
+  if(w===prev){toast(T.unchanged);S.err();shakeRow();return}
+  if(df(w,prev)!==1){errors++;updStat();toast(T.oneLetter);S.err();shakeRow();return}
+  if(!DS.has(w)){errors++;updStat();toast(T.notInDict);S.err();shakeRow();return}
   S.ok();done.push(w);
   if(w===tw){won=true;stopTimer();gpStop();render();S.win();showWin();confetti();return}
   cur=w.split('');fi=0;render();
@@ -238,11 +376,11 @@ function undo(){
 }
 
 function hint(){
-  if(won||gave)return;
+  if(window.gmAdPaused||won||gave)return;
   const from=done.length?done[done.length-1]:sw;
   if(from===tw)return;
   const path=bfsP(from,tw);
-  if(!path||path.length<2){toast('Нет пути отсюда! Отмените шаги.');S.err();return}
+  if(!path||path.length<2){toast(T.noPath);S.err();return}
   S.hint();hintCount++;
   const next=path[1];
   hintSteps.add(done.length);
@@ -253,6 +391,7 @@ function hint(){
 }
 
 function giveUp(){
+  if(window.gmAdPaused)return;
   S.gup();stopTimer();gpStop();gave=true;
   const path=bfsP(sw,tw);
   const sp=document.getElementById('solP');
@@ -264,16 +403,19 @@ function giveUp(){
       h+=solW(path[i],cls);
       if(i<path.length-1)h+='<div class="sa">↓</div>';
     }
-    sf.textContent='Оптимальный путь: '+pl(path.length-1);
+    sf.textContent=T.optPath(pl(path.length-1));
   } else {
     h+=solW(sw,'t-s');
-    h+='<div style="font-size:.95rem;color:#c0392b;padding:6px">Путь не найден</div>';
+    h+='<div style="font-size:.95rem;color:#c0392b;padding:6px">'+T.pathNotFound+'</div>';
     h+=solW(tw,'t-g');
     sf.textContent='';
   }
   sp.innerHTML=h;
   document.getElementById('givMo').classList.add('on');
   requestAnimationFrame(()=>sp.scrollTop=0);
+  if (typeof window.gmShowBanner === 'function') {
+    setTimeout(function(){ try { window.gmShowBanner(); } catch (e) {} }, 500);
+  }
 }
 
 function getDiffMult(){
@@ -303,19 +445,22 @@ function showWin(){
   const sc=calcScore();
   sessionScore+=sc.total;
   const t=fmtTime(sc.elapsed);
-  document.getElementById('winT').textContent=pl(sc.steps)+' за '+t+(mn>0?' (мин: '+mn+')':'');
+  document.getElementById('winT').textContent=T.winLine(pl(sc.steps),t,mn);
   let h='<div class="scb">';
-  h+='<div class="scr"><span>Базовые очки</span><b>'+sc.base+'</b></div>';
-  if(sc.extra>0)h+='<div class="scr"><span>Лишние шаги ('+sc.extra+')</span><b style="color:#c0392b">−'+sc.stepPen+'</b></div>';
-  if(errors>0)h+='<div class="scr"><span>Ошибки ('+errors+')</span><b style="color:#c0392b">−'+sc.errPen+'</b></div>';
-  if(hintCount>0)h+='<div class="scr"><span>Подсказки ('+hintCount+')</span><b style="color:#c0392b">−'+sc.hintPen+'</b></div>';
-  h+='<div class="scr"><span>Бонус за время</span><b style="color:'+(sc.timeBonus>0?'#2a5d4e':'#9a8e7e')+'">+'+sc.timeBonus+'</b></div>';
-  if(sc.diffMult!==1)h+='<div class="scr"><span>Сложность ×'+sc.diffMult+'</span><b></b></div>';
-  if(sc.lenMult!==1)h+='<div class="scr"><span>Длина '+N+' букв ×'+sc.lenMult+'</span><b></b></div>';
-  h+='<div class="sct"><span>Итого</span><span>⭐ '+sc.total+'</span></div>';
+  h+='<div class="scr"><span>'+T.base+'</span><b>'+sc.base+'</b></div>';
+  if(sc.extra>0)h+='<div class="scr"><span>'+T.extraSteps(sc.extra)+'</span><b style="color:#c0392b">−'+sc.stepPen+'</b></div>';
+  if(errors>0)h+='<div class="scr"><span>'+T.errors(errors)+'</span><b style="color:#c0392b">−'+sc.errPen+'</b></div>';
+  if(hintCount>0)h+='<div class="scr"><span>'+T.hints(hintCount)+'</span><b style="color:#c0392b">−'+sc.hintPen+'</b></div>';
+  h+='<div class="scr"><span>'+T.timeBonus+'</span><b style="color:'+(sc.timeBonus>0?'#2a5d4e':'#9a8e7e')+'">+'+sc.timeBonus+'</b></div>';
+  if(sc.diffMult!==1)h+='<div class="scr"><span>'+T.diffMult(sc.diffMult)+'</span><b></b></div>';
+  if(sc.lenMult!==1)h+='<div class="scr"><span>'+T.lenMult(N,sc.lenMult)+'</span><b></b></div>';
+  h+='<div class="sct"><span>'+T.total+'</span><span>⭐ '+sc.total+'</span></div>';
   h+='</div>';
   document.getElementById('winScore').innerHTML=h;
   document.getElementById('winMo').classList.add('on');
+  if (typeof window.gmShowBanner === 'function') {
+    setTimeout(function(){ try { window.gmShowBanner(); } catch (e) {} }, 500);
+  }
 }
 
 function updStat(){
@@ -339,23 +484,23 @@ function render(){
 function renderMenu(){
   const ls=['3','4','5','6','7','?'],ll={'3':'3','4':'4','5':'5','6':'6','7':'7','?':'🎲'};
   const ds=['any','easy','medium','hard'];
-  let h='<div class="menu"><div class="menu-icon">🪜</div><h2>Лест - буква за буквой</h2>';
-  h+='<p class="menu-sub">Превратите одно слово в другое, меняя по одной букве за шаг.</p>';
-  h+='<div class="msec"><div class="mlbl">Длина слов</div><div class="pills">';
+  let h='<div class="menu"><div class="menu-icon">🪜</div><h2>'+T.menuTitle+'</h2>';
+  h+='<p class="menu-sub">'+T.menuSub+'</p>';
+  h+='<div class="msec"><div class="mlbl">'+T.wordLen+'</div><div class="pills">';
   for(const l of ls)h+='<div class="pill'+(selL===l?' on':'')+'" data-len="'+l+'">'+ll[l]+'</div>';
   h+='</div></div>';
-  h+='<div class="msec"><div class="mlbl">Сложность</div><div class="pills">';
+  h+='<div class="msec"><div class="mlbl">'+T.difficulty+'</div><div class="pills">';
   for(const d of ds){
     const lb=DLABELS[d];
     h+='<div class="pill pill-dif'+(selD===d?' on':'')+'" data-dif="'+d+'">';
     h+='<span class="pd-name">'+lb[0]+'</span>';
-    h+='<span class="pd-steps">'+lb[1]+' ходов</span>';
+    h+='<span class="pd-steps">'+lb[1]+' '+T.moves+'</span>';
     h+='</div>';
   }
   h+='</div></div>';
-  h+='<button class="play-btn" id="goB">Играть</button>';
-  if(sessionScore>0)h+='<div class="wci">⭐ Очки за сессию: <b>'+sessionScore+'</b></div>';
-  h+='<div class="wci">Загружено: '+AW.length+' слов</div>';
+  h+='<button class="play-btn" id="goB">'+T.play+'</button>';
+  if(sessionScore>0)h+='<div class="wci">⭐ '+T.session+': <b>'+sessionScore+'</b></div>';
+  h+='<div class="wci">'+T.loaded(AW.length)+'</div>';
   h+='</div>';
   app.innerHTML=h;
 }
@@ -371,9 +516,9 @@ function renderGame(){
   if(sessionScore>0)h+='<span class="stat">⭐ <b>'+sessionScore+'</b></span>';
   h+='</div>';
   h+='<div class="gscr" id="gscr">';
-  h+='<div class="wl">Старт</div>'+wRow(sw,'t-s',sz,fs,g)+cn(1);
+  h+='<div class="wl">'+T.start+'</div>'+wRow(sw,'t-s',sz,fs,g)+cn(1);
   const skip=Math.max(0,done.length-MAX_V);
-  if(skip>0){h+='<div class="coll">··· ещё '+pl(skip)+' ···</div>'+cn(1)}
+  if(skip>0){h+='<div class="coll">'+T.more(pl(skip))+'</div>'+cn(1)}
   for(let i=skip;i<done.length;i++){
     const stepCls=hintSteps.has(i)?'t-ht':'t-d';
     h+='<div class="dw">'+wRow(done[i],stepCls,sz,fs,g);
@@ -388,18 +533,18 @@ function renderGame(){
       h+='<span class="ech" id="ec'+i+'">'+(cur[i]||'·')+'</span></div>';
       h+='<button class="ar" data-ad="'+i+'" style="width:'+sz+'px;height:'+ah+'px">▼</button></div>';
     }
-    h+='</div><div class="sr"><button class="sb" id="subB">Подтвердить</button></div></div>'+cn(0);
+    h+='</div><div class="sr"><button class="sb" id="subB">'+T.confirm+'</button></div></div>'+cn(0);
   }
-  h+='<div class="wl">Цель</div>'+wRow(tw,'t-g',sz,fs,g);
-  if(mn>0&&!won&&!gave)h+='<div class="inf">Минимум: '+pl(mn)+'</div>';
+  h+='<div class="wl">'+T.goal+'</div>'+wRow(tw,'t-g',sz,fs,g);
+  if(mn>0&&!won&&!gave)h+='<div class="inf">'+T.min(pl(mn))+'</div>';
   h+='</div><div class="acts">';
   if(!won&&!gave){
-    h+='<button class="ab ab2" id="udB"'+(done.length===0?' disabled':'')+' title="Отменить шаг">↶</button>';
-    h+='<button class="ab ab4" id="htB" title="Подсказка">💡</button>';
-    h+='<button class="ab ab2" id="rsB"'+(done.length===0?' disabled':'')+' title="Сброс">↺</button>';
-    h+='<button class="ab ab3" id="guB">Сдаться</button>';
+    h+='<button class="ab ab2" id="udB"'+(done.length===0?' disabled':'')+' title="Undo">↶</button>';
+    h+='<button class="ab ab4" id="htB" title="Hint">💡</button>';
+    h+='<button class="ab ab2" id="rsB"'+(done.length===0?' disabled':'')+' title="Reset">↺</button>';
+    h+='<button class="ab ab3" id="guB">'+T.giveUp+'</button>';
   }
-  h+='<button class="ab ab1" id="nwB">Новая</button><button class="ab ab2" id="mnB">Меню</button></div></div>';
+  h+='<button class="ab ab1" id="nwB">'+T.newGame+'</button><button class="ab ab2" id="mnB">'+T.menu+'</button></div></div>';
   app.innerHTML=h;
   upFoc();
   if(!won&&!gave){
@@ -461,62 +606,59 @@ document.getElementById('givM').onclick=()=>{gM.classList.remove('on');stopTimer
 gM.onclick=e=>{if(e.target===gM)gM.classList.remove('on')};
 const sB=document.getElementById('sndB');
 sB.onclick=()=>{ea();sndOn=!sndOn;sB.textContent=sndOn?'🔊':'🔇';if(sndOn){resumeAudio();S.clk()}else suspendAudio()};
+document.getElementById('langToggle').addEventListener('click',e=>{
+  const btn=e.target.closest('button');if(!btn||!btn.dataset.lang)return;
+  const next=btn.dataset.lang;if(next!=='en'&&next!=='ru')return;
+  try{localStorage.setItem('lest_lang',next);}catch(err){}
+  location.search='?lang='+next;
+});
+function applyStaticI18n(){
+  document.title=T.title;
+  const hdr=document.getElementById('hdrTitle');if(hdr)hdr.textContent=T.hdr;
+  const wh=document.getElementById('winH');if(wh)wh.textContent=T.winH;
+  const gh=document.getElementById('givH');if(gh)gh.textContent=T.givH;
+  const wn=document.getElementById('winN');if(wn)wn.textContent=T.next;
+  const wm=document.getElementById('winM');if(wm)wm.textContent=T.menu;
+  const gn=document.getElementById('givN');if(gn)gn.textContent=T.next;
+  const gm=document.getElementById('givM');if(gm)gm.textContent=T.menu;
+  const le=document.getElementById('langEn');const lr=document.getElementById('langRu');
+  if(le)le.classList.toggle('on',LANG==='en');
+  if(lr)lr.classList.toggle('on',LANG==='ru');
+}
 
 function confetti(){const b=document.getElementById('cfB');b.innerHTML='';const cs=['#2a5d4e','#4caf50','#ff9800','#e91e63','#2196f3','#ffeb3b','#9c27b0'];for(let i=0;i<55;i++){const p=document.createElement('div');p.className='cp';const s=4+Math.random()*7;Object.assign(p.style,{left:Math.random()*100+'%',width:s+'px',height:s+'px',background:cs[Math.random()*cs.length|0],borderRadius:Math.random()>.5?'50%':'2px',animationDuration:(1.5+Math.random()*2)+'s',animationDelay:Math.random()*.7+'s'});b.appendChild(p)}setTimeout(()=>b.innerHTML='',4500)}
 
+applyStaticI18n();
 initSDK().then(()=>{if(loadWords()){sdkReady();render()}});
-
-// =================== GAMEMONETIZE SDK INTEGRATION ===================
-(function() {
-    let gmInitialized = false;
-    
-    window.SDK_OPTIONS = {
-        gameId: window.GM_GAME_ID || 'REPLACE_WITH_GAMEMONETIZE_GAME_ID',
-        onEvent: function(event) {
-            switch(event.name) {
-                case 'SDK_GAME_PAUSE':
-                    stopTimer();
-                    break;
-                case 'SDK_GAME_START':
-                    startTimer();
-                    break;
-            }
-        }
-    };
-    
-    function tryShowBanner() {
-        if (gmInitialized && typeof sdk !== 'undefined' && sdk.showBanner) {
-            sdk.showBanner();
-        }
-    }
-    
-    let originalNextGame = nextGame;
-    if (typeof nextGame === 'function') {
-        nextGame = function() {
-            originalNextGame();
-            setTimeout(tryShowBanner, 500);
-        };
-    }
-    
-    let originalGiveUp = giveUp;
-    if (typeof giveUp === 'function') {
-        giveUp = function() {
-            originalGiveUp();
-            setTimeout(tryShowBanner, 500);
-        };
-    }
-    
-    window.addEventListener('load', function() {
-        setTimeout(function() {
-            gmInitialized = true;
-            tryShowBanner();
-        }, 3000);
-    });
-})();
 
 })();
 </script>
 <script src="gm-config.js"></script>
+<script>
+window.SDK_OPTIONS = {
+  gameId: window.GM_GAME_ID || 'REPLACE_WITH_GAMEMONETIZE_GAME_ID',
+  onEvent: function(event) {
+    if (!event || !event.name) return;
+    try {
+      if (event.name === 'SDK_GAME_PAUSE') {
+        if (typeof window.gmPauseGame === 'function') window.gmPauseGame();
+      } else if (event.name === 'SDK_GAME_START') {
+        if (typeof window.gmResumeGame === 'function') window.gmResumeGame();
+      }
+    } catch (e) {}
+  }
+};
+window.gmShowBanner = function() {
+  try {
+    if (typeof sdk !== 'undefined' && sdk && typeof sdk.showBanner === 'function') {
+      sdk.showBanner();
+    }
+  } catch (e) {}
+};
+window.addEventListener('load', function() {
+  setTimeout(function() { window.gmShowBanner(); }, 3000);
+});
+</script>
 <script src="https://api.gamemonetize.com/sdk.js"></script>
 </body>
 </html>

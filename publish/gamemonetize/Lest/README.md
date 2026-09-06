@@ -19,7 +19,8 @@ window.GM_GAME_ID = 'abc123def456';
 ## Features
 
 - Ads pause/resume game automatically
-- Banner ads display when starting new game or giving up
+- Banner ads display on win / give-up (and once after load)
+- English is the default language; Russian via EN/RU toggle or `?lang=ru`
 - No changes to core gameplay
 
 ## Upload

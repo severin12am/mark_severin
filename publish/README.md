@@ -35,8 +35,8 @@ publish/
 2. **Orbit Pong** (Орбита Понг) - Futuristic orbital Pong
 3. **Rotatris** (Ротатрис) - Rotating Tetris variant
 4. **Nucleon** (Нуклеон) - Atom-splitting physics puzzler
-5. **Mozgoput** (Мозгопут) - Russian word association game
-6. **Lest** (Лестница) - Russian word ladder puzzle
+5. **Mozgoput** (Мозгопут) - Word association game (English default, Russian optional)
+6. **Lest** (Лестница) - Word ladder puzzle (English default, Russian optional)
 
 ---
 
@@ -152,9 +152,9 @@ After updating `gm-config.js`, create a fresh ZIP:
 ## 🎯 Game-Specific Notes
 
 ### Mozgoput & Lest
-- These are **Russian language games**
-- Best marketed to Russian-speaking audiences
-- Tags should emphasize "russian" and "language"
+- **English is the default** (GameMonetize / itch builds)
+- Russian remains available via the in-game EN/RU toggle or `?lang=ru`
+- Tags should emphasize "word-game", "english", and "language"
 
 ### Rotatris
 - Previously attempted on CrazyGames (impression issues)

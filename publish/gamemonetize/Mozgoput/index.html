@@ -1,9 +1,24 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<title>МозгоПуть — найди невозможную связь</title>
+<title>Brain Path — find the hidden link</title>
+<script>
+window.GAME_LANG = (function(){
+  try {
+    var q = new URLSearchParams(location.search).get('lang');
+    if (q === 'ru' || q === 'en') {
+      try { localStorage.setItem('mozgoput_lang', q); } catch (e) {}
+      return q;
+    }
+    var s = localStorage.getItem('mozgoput_lang');
+    if (s === 'ru' || s === 'en') return s;
+  } catch (e) {}
+  return 'en';
+})();
+document.documentElement.lang = window.GAME_LANG === 'ru' ? 'ru' : 'en';
+</script>
 <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@400;600;700&family=Neucha&display=swap" rel="stylesheet">
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -149,6 +164,19 @@ body{
   color:var(--ink-mid);user-select:none;
 }
 .sound-toggle:hover{color:var(--ink)}
+.lang-toggle{
+  display:inline-flex;gap:0;margin:.4rem auto .2rem;
+  border:2px dashed var(--dash);border-radius:6px;overflow:hidden;
+}
+.lang-toggle button{
+  font-family:var(--fb);font-size:.9rem;
+  padding:.3rem .85rem;border:none;cursor:pointer;
+  background:transparent;color:var(--ink-mid);
+}
+.lang-toggle button.active{
+  background:var(--paper-dark);color:var(--ink);font-weight:700;
+}
+.lang-toggle button:not(:last-child){border-right:2px dashed var(--dash)}
 
 /* Start button */
 .btn-start{
@@ -471,9 +499,9 @@ body{
     <div class="paper err-paper">
       <div class="tape-strip tape-center"></div>
       <div style="font-size:2.5rem;margin-bottom:.5rem">📜</div>
-      <h2>Не найдены файлы данных</h2>
+      <h2 id="errTitle">Data files not found</h2>
       <hr class="dash-line">
-      <p>Убедитесь, что <strong>words.js</strong> и <strong>graph.js</strong> лежат рядом с index.html.</p>
+      <p id="errBody">Make sure <strong>words.js</strong> and <strong>graph.js</strong> sit next to index.html.</p>
     </div>
   </div>
 
@@ -482,32 +510,36 @@ body{
     <div class="paper menu-paper">
       <div class="tape-strip tape-center"></div>
       <div class="logo-icon">📜</div>
-      <div class="logo-title">МозгоПуть</div>
-      <div class="logo-sub">— найди невозможную связь —</div>
+      <div class="logo-title" id="logoTitle">Brain Path</div>
+      <div class="logo-sub" id="logoSub">— find the hidden link —</div>
       <hr class="dash-line">
       <div class="player-toggle" id="playerToggle">
-        <button class="active" data-p="1">1 игрок</button>
-        <button data-p="2">2 игрока</button>
+        <button class="active" data-p="1" id="btnP1">1 player</button>
+        <button data-p="2" id="btnP2">2 players</button>
       </div>
       <div class="mode-cards" id="modeCards">
         <div class="paper mode-card selected" data-mode="choose">
           <div class="pushpin"></div>
-          <h3>☞ Выбери</h3>
-          <p>Карточки перед тобой. Среди обманок — правильные ассоциации.</p>
+          <h3 id="chooseTitle">☞ Choose</h3>
+          <p id="chooseDesc">Cards in front of you. Real associations hide among decoys.</p>
         </div>
         <div class="paper mode-card" data-mode="type">
           <div class="pushpin"></div>
-          <h3>✎ Печатай</h3>
-          <p>Вводи любое слово из словаря. Думай и набирай!</p>
+          <h3 id="typeTitle">✎ Type</h3>
+          <p id="typeDesc">Enter any dictionary word. Think and type!</p>
         </div>
       </div>
-      <div class="rules-note">
-        ✓ Правильная ассоциация: <span style="color:var(--success)">+1 очко</span><br>
-        ✗ Промах: <span style="color:var(--accent)">−1 очко</span>
+      <div class="rules-note" id="rulesNote">
+        ✓ Correct association: <span style="color:var(--success)">+1 point</span><br>
+        ✗ Miss: <span style="color:var(--accent)">−1 point</span>
       </div>
-      <div class="sound-toggle" id="soundToggle">🔊 Звук: <span>вкл</span></div>
+      <div class="lang-toggle" id="langToggle">
+        <button data-lang="en" id="langEn">EN</button>
+        <button data-lang="ru" id="langRu">RU</button>
+      </div>
+      <div class="sound-toggle" id="soundToggle">🔊 Sound: <span>on</span></div>
       <hr class="dash-line">
-      <button class="btn-start" id="btnStart">▶ Начать игру</button>
+      <button class="btn-start" id="btnStart">▶ Start game</button>
     </div>
   </div>
 
@@ -516,19 +548,19 @@ body{
     <div class="game-header">
       <div class="game-header-left">
         <div class="sticky s1" id="score1">
-          <div class="sticky-label" id="scoreLabel1">Очки</div>
+          <div class="sticky-label" id="scoreLabel1">Score</div>
           <div class="sticky-score" id="scoreVal1">0</div>
           <div class="sticky-detail"><span id="correct1">0</span>✓ <span id="wrong1">0</span>✗</div>
         </div>
         <div class="sticky s2" id="score2" style="display:none">
-          <div class="sticky-label" id="scoreLabel2">Игрок 2</div>
+          <div class="sticky-label" id="scoreLabel2">Player 2</div>
           <div class="sticky-score" id="scoreVal2">0</div>
           <div class="sticky-detail"><span id="correct2">0</span>✓ <span id="wrong2">0</span>✗</div>
         </div>
       </div>
       <div class="game-header-right">
-        <div class="turn-indicator" id="turnIndicator" style="display:none">Ход: Игрок 1</div>
-        <button class="btn-paper" id="btnMenu">← Меню</button>
+        <div class="turn-indicator" id="turnIndicator" style="display:none">Turn: Player 1</div>
+        <button class="btn-paper" id="btnMenu">← Menu</button>
       </div>
     </div>
 
@@ -548,7 +580,7 @@ body{
       <div class="paper chain-panel" id="chainPanel2" style="display:none">
         <div class="tape-strip tape-left"></div>
         <div class="tape-strip tape-right"></div>
-        <div class="chain-label" id="chainLabel2">Игрок 2</div>
+        <div class="chain-label" id="chainLabel2">Player 2</div>
         <div class="endpoints">
           <span class="endpoint-word start-word" id="startDisplay2">—</span>
           <span class="endpoint-arrow"></span>
@@ -562,21 +594,21 @@ body{
     <div class="paper selection-area" id="selectionArea">
       <div class="tape-strip tape-center"></div>
       <div id="singleSelection">
-        <div class="selection-label" id="selectionLabel">Выбери ассоциацию:</div>
+        <div class="selection-label" id="selectionLabel">Pick an association:</div>
         <div class="cards-grid" id="cardsGrid"></div>
         <div class="type-area" id="typeArea" style="display:none">
-          <input class="type-input" id="typeInput" placeholder="введи слово..." autocomplete="off" autocapitalize="off">
+          <input class="type-input" id="typeInput" placeholder="type a word..." autocomplete="off" autocapitalize="off">
           <button class="btn-submit" id="btnSubmit">→</button>
         </div>
       </div>
       <div id="dualChooseContainer" style="display:none">
         <div class="dual-choose">
           <div class="player-panel">
-            <div class="selection-label" style="color:var(--success);font-weight:700">Игрок 1 <small style="font-size:0.8rem">(WASD + Пробел)</small></div>
+            <div class="selection-label" id="dualLabel1" style="color:var(--success);font-weight:700">Player 1 <small style="font-size:0.8rem">(WASD + Space)</small></div>
             <div class="cards-grid" id="cardsGrid1" style="grid-template-columns:repeat(5,1fr);"></div>
           </div>
           <div class="player-panel">
-            <div class="selection-label" style="color:var(--accent);font-weight:700">Игрок 2 <small style="font-size:0.8rem">(← ↑ ↓ → + Enter)</small></div>
+            <div class="selection-label" id="dualLabel2" style="color:var(--accent);font-weight:700">Player 2 <small style="font-size:0.8rem">(← ↑ ↓ → + Enter)</small></div>
             <div class="cards-grid" id="cardsGrid2" style="grid-template-columns:repeat(5,1fr);"></div>
           </div>
         </div>
@@ -584,33 +616,38 @@ body{
     </div>
 
     <div class="game-controls">
-      <button class="btn-paper" id="btnUndo">↩ Отменить</button>
-      <button class="btn-paper" id="btnHelp">❓ Подсказка</button>
-      <button class="btn-paper danger" id="btnGiveUp">🏳 Сдаться</button>
-      <button class="btn-paper" id="btnNewRound">✦ Новый раунд</button>
+      <button class="btn-paper" id="btnUndo">↩ Undo</button>
+      <button class="btn-paper" id="btnHelp">❓ Hint</button>
+      <button class="btn-paper danger" id="btnGiveUp">🏳 Give up</button>
+      <button class="btn-paper" id="btnNewRound">✦ New round</button>
     </div>
-    <div class="kb-hint">Enter — подтвердить · ← → ↑ ↓ навигация · Пробел — выбрать</div>
+    <div class="kb-hint" id="kbHint">Enter — confirm · ← → ↑ ↓ navigate · Space — select</div>
   </div>
 
   <!-- RESULT SCREEN -->
   <div id="result-screen" class="screen">
     <div class="paper result-paper">
       <div class="tape-strip tape-center"></div>
-      <h2 id="resultTitle">Раунд окончен!</h2>
+      <h2 id="resultTitle">Round over!</h2>
       <div class="result-sub" id="resultSub"></div>
       <hr class="dash-line">
       <div class="result-scores" id="resultScores"></div>
       <div class="chain-reveal" id="chainReveal"></div>
       <hr class="dash-line">
-      <button class="btn-start" id="btnPlayAgain" style="font-size:1.4rem;padding:.4rem 1.8rem">✦ Ещё раунд</button>
+      <button class="btn-start" id="btnPlayAgain" style="font-size:1.4rem;padding:.4rem 1.8rem">✦ Another round</button>
       <br>
-      <button class="btn-paper" id="btnBackMenu" style="margin-top:.5rem">← Меню</button>
+      <button class="btn-paper" id="btnBackMenu" style="margin-top:.5rem">← Menu</button>
     </div>
   </div>
 </div>
 
-<script src="words.js"></script>
-<script src="graph.js"></script>
+<script>
+(function () {
+  var ru = window.GAME_LANG === 'ru';
+  document.write('<script src="' + (ru ? 'words-ru.js' : 'words.js') + '"><\/script>');
+  document.write('<script src="' + (ru ? 'graph-ru.js' : 'graph.js') + '"><\/script>');
+})();
+</script>
 <script>
 (function(){
 'use strict';
@@ -630,13 +667,147 @@ document.addEventListener('touchmove', function(e){
   e.preventDefault();
 }, {passive: false});
 
+/* ============ I18N ============ */
+const LANG = window.GAME_LANG === 'ru' ? 'ru' : 'en';
+const I18N = {
+  en: {
+    title: 'Brain Path — find the hidden link',
+    errTitle: 'Data files not found',
+    errBody: 'Make sure words.js and graph.js sit next to index.html.',
+    logo: 'Brain Path',
+    sub: '— find the hidden link —',
+    p1: '1 player',
+    p2: '2 players',
+    chooseTitle: '☞ Choose',
+    chooseDesc: 'Cards in front of you. Real associations hide among decoys.',
+    typeTitle: '✎ Type',
+    typeDesc: 'Enter any dictionary word. Think and type!',
+    rules: '✓ Correct association: <span style="color:var(--success)">+1 point</span><br>✗ Miss: <span style="color:var(--accent)">−1 point</span>',
+    soundOn: 'on',
+    soundOff: 'off',
+    soundLabelOn: '🔊 Sound: ',
+    soundLabelOff: '🔇 Sound: ',
+    start: '▶ Start game',
+    score: 'Score',
+    player: 'Player',
+    playerN: function(n){ return 'Player ' + n; },
+    turn: function(n){ return 'Turn: Player ' + n; },
+    menu: '← Menu',
+    pickAssoc: 'Pick an association:',
+    typeAssoc: 'Type an association:',
+    placeholder: 'type a word...',
+    dual1: 'Player 1 <small style="font-size:0.8rem">(WASD + Space)</small>',
+    dual2: 'Player 2 <small style="font-size:0.8rem">(← ↑ ↓ → + Enter)</small>',
+    undo: '↩ Undo',
+    hint: '❓ Hint',
+    giveUp: '🏳 Give up',
+    newRound: '✦ New round',
+    kbHint: 'Enter — confirm · ← → ↑ ↓ navigate · Space — select',
+    roundOver: 'Round over!',
+    playAgain: '✦ Another round',
+    backMenu: '← Menu',
+    tie: 'Tie!',
+    victory: 'Victory!',
+    evenScore: 'Even score',
+    playerWins: function(n){ return 'Player ' + n + ' wins!'; },
+    result: 'Result',
+    winner: '★ Winner',
+    reached: '🎯 Goal reached',
+    gaveUp: '🏳 Gave up',
+    shortest: function(n){ return 'Shortest path (' + n + ' steps):'; },
+    noPair: 'Could not pick a word pair',
+    fallbackA: 'word',
+    fallbackB: 'world'
+  },
+  ru: {
+    title: 'МозгоПуть — найди невозможную связь',
+    errTitle: 'Не найдены файлы данных',
+    errBody: 'Убедитесь, что words.js и graph.js лежат рядом с index.html.',
+    logo: 'МозгоПуть',
+    sub: '— найди невозможную связь —',
+    p1: '1 игрок',
+    p2: '2 игрока',
+    chooseTitle: '☞ Выбери',
+    chooseDesc: 'Карточки перед тобой. Среди обманок — правильные ассоциации.',
+    typeTitle: '✎ Печатай',
+    typeDesc: 'Вводи любое слово из словаря. Думай и набирай!',
+    rules: '✓ Правильная ассоциация: <span style="color:var(--success)">+1 очко</span><br>✗ Промах: <span style="color:var(--accent)">−1 очко</span>',
+    soundOn: 'вкл',
+    soundOff: 'выкл',
+    soundLabelOn: '🔊 Звук: ',
+    soundLabelOff: '🔇 Звук: ',
+    start: '▶ Начать игру',
+    score: 'Очки',
+    player: 'Игрок',
+    playerN: function(n){ return 'Игрок ' + n; },
+    turn: function(n){ return 'Ход: Игрок ' + n; },
+    menu: '← Меню',
+    pickAssoc: 'Выбери ассоциацию:',
+    typeAssoc: 'Введи ассоциацию:',
+    placeholder: 'введи слово...',
+    dual1: 'Игрок 1 <small style="font-size:0.8rem">(WASD + Пробел)</small>',
+    dual2: 'Игрок 2 <small style="font-size:0.8rem">(← ↑ ↓ → + Enter)</small>',
+    undo: '↩ Отменить',
+    hint: '❓ Подсказка',
+    giveUp: '🏳 Сдаться',
+    newRound: '✦ Новый раунд',
+    kbHint: 'Enter — подтвердить · ← → ↑ ↓ навигация · Пробел — выбрать',
+    roundOver: 'Раунд окончен!',
+    playAgain: '✦ Ещё раунд',
+    backMenu: '← Меню',
+    tie: 'Ничья!',
+    victory: 'Победа!',
+    evenScore: 'Равный счёт',
+    playerWins: function(n){ return 'Игрок ' + n + ' побеждает!'; },
+    result: 'Результат',
+    winner: '★ Победитель',
+    reached: '🎯 Цель достигнута',
+    gaveUp: '🏳 Сдался',
+    shortest: function(n){ return 'Кратчайший путь (' + n + ' шагов):'; },
+    noPair: 'Не удалось подобрать пару слов',
+    fallbackA: 'слово',
+    fallbackB: 'мир'
+  }
+};
+const S = I18N[LANG];
+function applyStaticI18n(){
+  document.title = S.title;
+  var map = {
+    errTitle: S.errTitle, logoTitle: S.logo, logoSub: S.sub,
+    btnP1: S.p1, btnP2: S.p2, chooseTitle: S.chooseTitle, chooseDesc: S.chooseDesc,
+    typeTitle: S.typeTitle, typeDesc: S.typeDesc, btnStart: S.start,
+    scoreLabel1: S.score, scoreLabel2: S.playerN(2), btnMenu: S.menu,
+    chainLabel2: S.playerN(2), selectionLabel: S.pickAssoc,
+    btnUndo: S.undo, btnHelp: S.hint, btnGiveUp: S.giveUp, btnNewRound: S.newRound,
+    kbHint: S.kbHint, resultTitle: S.roundOver, btnPlayAgain: S.playAgain, btnBackMenu: S.backMenu
+  };
+  Object.keys(map).forEach(function(id){
+    var el = document.getElementById(id);
+    if (el) el.textContent = map[id];
+  });
+  var errBody = document.getElementById('errBody');
+  if (errBody) errBody.innerHTML = S.errBody;
+  var rules = document.getElementById('rulesNote');
+  if (rules) rules.innerHTML = S.rules;
+  var dual1 = document.getElementById('dualLabel1');
+  var dual2 = document.getElementById('dualLabel2');
+  if (dual1) dual1.innerHTML = S.dual1;
+  if (dual2) dual2.innerHTML = S.dual2;
+  var input = document.getElementById('typeInput');
+  if (input) input.placeholder = S.placeholder;
+  var langEn = document.getElementById('langEn');
+  var langRu = document.getElementById('langRu');
+  if (langEn && langRu) {
+    langEn.classList.toggle('active', LANG === 'en');
+    langRu.classList.toggle('active', LANG === 'ru');
+  }
+}
+
 /* ============ PLATFORM STUB (local portfolio) ============ */
 const YM = {
-  player: null, isAdShowing: false, _lang: 'ru',
+  player: null, isAdShowing: false, _lang: LANG,
   async init() {
-    const urlLang = new URLSearchParams(location.search).get('lang');
-    if (urlLang === 'ru' || urlLang === 'en') this._lang = urlLang;
-    else if (navigator.language?.toLowerCase().startsWith('ru')) this._lang = 'ru';
+    this._lang = LANG;
   },
   async saveData(d) {
     try { localStorage.setItem('mozgoput_save', JSON.stringify(d)); } catch (e) {}
@@ -723,9 +894,9 @@ function currentWordForPlayer(pi){
 function currentWord(){return currentWordForPlayer(G.currentPlayer)}
 
 function updateSoundUI(){
-  $('soundToggle').querySelector('span').textContent=G.sound?'вкл':'выкл';
+  $('soundToggle').querySelector('span').textContent=G.sound?S.soundOn:S.soundOff;
   var t=$('soundToggle').firstChild;
-  if(t&&t.nodeType===3) t.textContent=G.sound?'🔊 Звук: ':'🔇 Звук: ';
+  if(t&&t.nodeType===3) t.textContent=G.sound?S.soundLabelOn:S.soundLabelOff;
 }
 
 /* ============ DOM ============ */
@@ -767,6 +938,13 @@ $('btnNewRound').onclick=startGame;
 $('btnSubmit').onclick=submitTyped;
 $('typeInput').addEventListener('keydown',function(e){if(e.key==='Enter')submitTyped()});
 $('btnHelp').onclick=showHint;
+$('langToggle').addEventListener('click',function(e){
+  const btn=e.target.closest('button');if(!btn||!btn.dataset.lang)return;
+  const next=btn.dataset.lang;
+  if(next!=='en'&&next!=='ru')return;
+  try{localStorage.setItem('mozgoput_lang',next);}catch(err){}
+  location.search='?lang='+next;
+});
 
 /* ============ START GAME ============ */
 function startGame(){
@@ -774,7 +952,7 @@ function startGame(){
   if(!hasData){showScreen('error');return;}
   resetPlayerState();
   const lv=pickLevel();
-  if(!lv){showModal('Не удалось подобрать пару слов');return;}
+  if(!lv){showModal(S.noPair);return;}
   G.startWord=lv.s;G.goalWord=lv.g;G.bestPathCache=lv.opt;
   G.batch=[];G.batch1=[];G.batch2=[];
   G.focusIdx=G.focusIdx1=G.focusIdx2=0;
@@ -784,24 +962,24 @@ function startGame(){
   const is2=$('score2'),ti=$('turnIndicator'),cp2=$('chainPanel2'),cd=$('chainDivider');
   if(is2P){
     is2.style.display='';ti.style.display='';cp2.style.display='';cd.style.display='';
-    $('scoreLabel1').textContent='Игрок 1';$('chainLabel1').textContent='Игрок 1';
+    $('scoreLabel1').textContent=S.playerN(1);$('chainLabel1').textContent=S.playerN(1);
   }else{
     is2.style.display='none';ti.style.display='none';cp2.style.display='none';cd.style.display='none';
-    $('scoreLabel1').textContent='Очки';$('chainLabel1').textContent='';
+    $('scoreLabel1').textContent=S.score;$('chainLabel1').textContent='';
   }
 
   if(G.mode==='choose'){
     $('singleSelection').style.display=is2P?'none':'block';
     $('dualChooseContainer').style.display=is2P?'block':'none';
     $('typeArea').style.display='none';
-    $('selectionLabel').textContent=is2P?'':'Выбери ассоциацию:';
+    $('selectionLabel').textContent=is2P?'':S.pickAssoc;
     if(is2P)genDualBatches();else genBatch();
   }else{
     $('singleSelection').style.display='block';
     $('dualChooseContainer').style.display='none';
     $('cardsGrid').style.display='none';
     $('typeArea').style.display='flex';
-    $('selectionLabel').textContent='Введи ассоциацию:';
+    $('selectionLabel').textContent=S.typeAssoc;
   }
 
   const helpBtn=$('btnHelp');
@@ -830,7 +1008,7 @@ function pickLevel(){
       return{s:a,g:b,opt:optPath||[a,b]};
     }
   }
-  return{s:KEYS[0]||'слово',g:KEYS[1]||'мир',opt:[KEYS[0]||'слово',KEYS[1]||'мир']};
+  return{s:KEYS[0]||S.fallbackA,g:KEYS[1]||S.fallbackB,opt:[KEYS[0]||S.fallbackA,KEYS[1]||S.fallbackB]};
 }
 
 function findBestPath(a,b){
@@ -912,7 +1090,7 @@ function renderGame(){
   $('score1').classList.toggle('active-player',G.players===2&&G.currentPlayer===0);
   $('score2').classList.toggle('active-player',G.players===2&&G.currentPlayer===1);
   if(G.players===2){
-    $('turnIndicator').textContent='Ход: Игрок '+(G.currentPlayer+1);
+    $('turnIndicator').textContent=S.turn(G.currentPlayer+1);
     $('chainPanel1').classList.toggle('inactive',G.currentPlayer!==0);
     $('chainPanel2').classList.toggle('inactive',G.currentPlayer!==1);
   }
@@ -1079,27 +1257,27 @@ function displayResult(){
   const tied=active.filter(function(p){return p.score===max}).length>1;
 
   if(G.players===2){
-    $('resultTitle').textContent=tied?'Ничья!':'Победа!';
-    $('resultSub').textContent=tied?'Равный счёт':'Игрок '+(winner+1)+' побеждает!';
+    $('resultTitle').textContent=tied?S.tie:S.victory;
+    $('resultSub').textContent=tied?S.evenScore:S.playerWins(winner+1);
   }else{
-    $('resultTitle').textContent='Раунд окончен!';$('resultSub').textContent='';
+    $('resultTitle').textContent=S.roundOver;$('resultSub').textContent='';
   }
 
   active.forEach(function(p,i){
     const div=document.createElement('div');div.className='paper result-player';
-    const label=G.players===2?'Игрок '+(i+1):'Результат';
-    const badge=(G.players===2&&!tied&&i===winner)?'<div class="winner-badge">★ Победитель</div>':'';
+    const label=G.players===2?S.playerN(i+1):S.result;
+    const badge=(G.players===2&&!tied&&i===winner)?'<div class="winner-badge">'+S.winner+'</div>':'';
     const reached=p.chain[p.chain.length-1]===G.goalWord;
     div.innerHTML=badge+'<h3>'+label+'</h3><div class="big-score" style="color:'+(p.score>=0?'var(--success)':'var(--accent)')+'">'+p.score+'</div>'+
       '<div class="detail">✓ '+p.correct+' &nbsp; ✗ '+p.wrong+'</div>'+
-      '<div class="detail" style="margin-top:.2rem">'+(reached?'🎯 Цель достигнута':'🏳 Сдался')+'</div>';
+      '<div class="detail" style="margin-top:.2rem">'+(reached?S.reached:S.gaveUp)+'</div>';
     if(G.players===2)div.style.background=i===0?'var(--sticky1)':'var(--sticky2)';
     rs.appendChild(div);
   });
 
   const reveal=$('chainReveal');
   if(G.bestPathCache){
-    reveal.innerHTML='<strong>Кратчайший путь ('+(G.bestPathCache.length-1)+' шагов):</strong><br>'+G.bestPathCache.join(' <span style="color:var(--dash)">---</span> ');
+    reveal.innerHTML='<strong>'+S.shortest(G.bestPathCache.length-1)+'</strong><br>'+G.bestPathCache.join(' <span style="color:var(--dash)">---</span> ');
     reveal.style.display='';
   }
 
@@ -1112,6 +1290,9 @@ function displayResult(){
   });
 
   showScreen('result');
+  if (typeof window.gmShowBanner === 'function') {
+    setTimeout(function(){ try { window.gmShowBanner(); } catch (e) {} }, 500);
+  }
 }
 
 /* ============ HINT ============ */
@@ -1187,6 +1368,7 @@ document.addEventListener('keydown',function(e){
 });
 
 /* ============ INIT ============ */
+applyStaticI18n();
 if(!hasData)showScreen('error');else showScreen('menu');
 
 YM.init().then(function(){return YM.loadData()}).then(function(data){
@@ -1194,53 +1376,39 @@ YM.init().then(function(){return YM.loadData()}).then(function(data){
 }).catch(function(e){console.warn('[YG] Failed to load saved data:',e)});
 
 })();
-
-// =================== GAMEMONETIZE SDK INTEGRATION ===================
-(function() {
-    let gmInitialized = false;
-    
-    window.SDK_OPTIONS = {
-        gameId: window.GM_GAME_ID || 'REPLACE_WITH_GAMEMONETIZE_GAME_ID',
-        onEvent: function(event) {
-            switch(event.name) {
-                case 'SDK_GAME_PAUSE':
-                    if (typeof YM !== 'undefined') {
-                        YM.isAdShowing = true;
-                    }
-                    break;
-                case 'SDK_GAME_START':
-                    if (typeof YM !== 'undefined') {
-                        YM.isAdShowing = false;
-                    }
-                    break;
-            }
-        }
-    };
-    
-    function tryShowBanner() {
-        if (gmInitialized && typeof sdk !== 'undefined' && sdk.showBanner) {
-            sdk.showBanner();
-        }
-    }
-    
-    // Hook into game over / result screen
-    if (typeof window.gameFinish === 'function') {
-        let originalGameFinish = window.gameFinish;
-        window.gameFinish = function() {
-            originalGameFinish();
-            setTimeout(tryShowBanner, 500);
-        };
-    }
-    
-    window.addEventListener('load', function() {
-        setTimeout(function() {
-            gmInitialized = true;
-            tryShowBanner();
-        }, 3000);
-    });
-})();
 </script>
 <script src="gm-config.js"></script>
+<script>
+window.SDK_OPTIONS = {
+  gameId: window.GM_GAME_ID || 'REPLACE_WITH_GAMEMONETIZE_GAME_ID',
+  onEvent: function(event) {
+    if (!event || !event.name) return;
+    try {
+      if (event.name === 'SDK_GAME_PAUSE') {
+        if (typeof YM !== 'undefined') {
+          YM.isAdShowing = true;
+          if (typeof YM.pauseAudio === 'function') YM.pauseAudio();
+        }
+      } else if (event.name === 'SDK_GAME_START') {
+        if (typeof YM !== 'undefined') {
+          YM.isAdShowing = false;
+          if (typeof YM.resumeAudio === 'function') YM.resumeAudio();
+        }
+      }
+    } catch (e) {}
+  }
+};
+window.gmShowBanner = function() {
+  try {
+    if (typeof sdk !== 'undefined' && sdk && typeof sdk.showBanner === 'function') {
+      sdk.showBanner();
+    }
+  } catch (e) {}
+};
+window.addEventListener('load', function() {
+  setTimeout(function() { window.gmShowBanner(); }, 3000);
+});
+</script>
 <script src="https://api.gamemonetize.com/sdk.js"></script>
 </body>
 </html>

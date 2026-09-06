@@ -88,18 +88,18 @@ Split atoms in this fast-paced physics puzzler! Control a neutron paddle to trig
 **Russian Title:** Мозгопут
 
 **Description (EN):**  
-Russian word association game! Connect start and target words through the shortest chain of associations. Uses real graph data with thousands of Russian nouns. Perfect for native speakers and advanced learners. Challenge your vocabulary and lateral thinking.
+Word association puzzle! Connect a start word to a target word through the shortest chain of real associations. English is the default language, with a full English association graph (10,000+ words). Russian remains available via the EN/RU toggle or `?lang=ru`. Challenge your vocabulary and lateral thinking.
 
 **Description (RU):**  
-Игра в словесные ассоциации! Соедините начальное и целевое слово через кратчайшую цепочку ассоциаций. Использует реальные графовые данные с тысячами русских существительных. Проверьте словарный запас и латеральное мышление.
+Игра в словесные ассоциации! Соедините начальное и целевое слово через кратчайшую цепочку ассоциаций. По умолчанию — английский, русский доступен переключателем или `?lang=ru`.
 
-**Tags:** word-game, russian, associations, puzzle, vocabulary, brain-game, educational, language
+**Tags:** word-game, english, associations, puzzle, vocabulary, brain-game, educational, language
 
 **Preview Image:** `Mozgoput/preview.png`
 
 **Suggested itch.io Price:** Free (donations encouraged)
 
-**Note:** Requires Russian language knowledge. Best marketed to Russian-speaking audiences.
+**Note:** English is the default for GameMonetize. Russian UI and dictionary still ship in the pack.
 
 ---
 
@@ -109,18 +109,18 @@ Russian word association game! Connect start and target words through the shorte
 **Russian Title:** Лестница
 
 **Description (EN):**  
-Classic word ladder puzzle in Russian! Change one letter at a time to transform one word into another, with each step forming a valid Russian noun. Multiple difficulty levels, hint system, and timer challenges. Minimal elegant design.
+Classic word ladder puzzle. Change one letter at a time to transform one word into another — each step must be a valid dictionary word. English is the default, with thousands of 3–7 letter English words. Russian remains available via the EN/RU toggle or `?lang=ru`. Difficulty levels, hints, and a timer.
 
 **Description (RU):**  
-Классическая головоломка словесной лестницы! Меняйте по одной букве за раз, чтобы преобразовать одно слово в другое. Каждый шаг должен быть валидным русским существительным. Несколько уровней сложности, система подсказок.
+Классическая головоломка словесной лестницы! Меняйте по одной букве за раз. По умолчанию — английский, русский доступен переключателем или `?lang=ru`.
 
-**Tags:** word-game, russian, puzzle, word-ladder, logic, minimal, vocabulary, language
+**Tags:** word-game, english, puzzle, word-ladder, logic, minimal, vocabulary, language
 
 **Preview Image:** `Lest/preview.png`
 
 **Suggested itch.io Price:** Free (donations encouraged)
 
-**Note:** Requires Russian language knowledge. Best marketed to Russian-speaking audiences.
+**Note:** English is the default for GameMonetize. Russian UI and noun list still ship in the pack.
 
 ---
 
