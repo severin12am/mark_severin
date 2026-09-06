@@ -1,0 +1,1287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Орбита Понг</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <style>
+        /* --- CSS STYLING --- */
+        * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-user-select: none; -moz-user-select: none; -ms-user-select: none; }
+
+        body { 
+            background-color: #04040f; 
+            color: #fff; 
+            font-family: 'Inter', 'Segoe UI', sans-serif; 
+            overflow: hidden; 
+            touch-action: none;
+            -webkit-touch-callout: none;
+        }
+
+        canvas { display: block; width: 100vw; height: 100vh; }
+
+        /* ===== UI LAYER ===== */
+        #ui-layer {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none; 
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+        }
+
+        /* ===== MENU BASE ===== */
+        .menu {
+            background: linear-gradient(135deg, rgba(8, 8, 24, 0.92) 0%, rgba(12, 12, 32, 0.88) 100%);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            padding: 44px 52px;
+            border-radius: 28px;
+            text-align: center;
+            box-shadow:
+                0 0 0 1px rgba(0, 243, 255, 0.06),
+                0 8px 32px rgba(0, 0, 0, 0.6),
+                0 0 80px rgba(0, 243, 255, 0.07),
+                inset 0 1px 0 rgba(255, 255, 255, 0.05);
+            pointer-events: auto;
+            backdrop-filter: blur(24px) saturate(1.4);
+            -webkit-backdrop-filter: blur(24px) saturate(1.4);
+            transition: opacity 0.35s ease, transform 0.35s ease;
+            max-width: 820px;
+            width: 90vw;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .menu::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 10%; right: 10%;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(0, 243, 255, 0.5), rgba(255, 0, 85, 0.5), transparent);
+            border-radius: 50%;
+        }
+
+        /* ===== TITLE ===== */
+        h1 {
+            font-family: 'Orbitron', sans-serif;
+            font-size: clamp(2.4rem, 6vw, 4.2rem);
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: 6px;
+            margin-bottom: 8px;
+            background: linear-gradient(100deg, #00f3ff 0%, #a78bfa 45%, #ff0055 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            filter: drop-shadow(0 0 18px rgba(0, 243, 255, 0.35));
+            animation: titlePulse 4s ease-in-out infinite;
+        }
+
+        @keyframes titlePulse {
+            0%, 100% { filter: drop-shadow(0 0 18px rgba(0, 243, 255, 0.35)); }
+            50%       { filter: drop-shadow(0 0 32px rgba(167, 139, 250, 0.55)); }
+        }
+
+        h2 {
+            font-family: 'Orbitron', sans-serif;
+            font-size: clamp(1.3rem, 3vw, 1.8rem);
+            font-weight: 700;
+            letter-spacing: 3px;
+            margin-bottom: 28px;
+            color: rgba(255, 255, 255, 0.9);
+            text-transform: uppercase;
+        }
+
+        .menu-divider {
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.08), transparent);
+            margin: 20px 0;
+        }
+
+        /* ===== BUTTONS ===== */
+        .btn {
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            color: rgba(255, 255, 255, 0.88);
+            padding: 13px 28px;
+            font-family: 'Orbitron', sans-serif;
+            font-size: 0.75rem;
+            font-weight: 600;
+            cursor: pointer;
+            margin: 6px;
+            border-radius: 12px;
+            text-transform: uppercase;
+            letter-spacing: 2.5px;
+            transition: all 0.22s cubic-bezier(0.34, 1.56, 0.64, 1);
+            display: inline-block;
+            position: relative;
+            backdrop-filter: blur(8px);
+        }
+
+        .btn:hover {
+            background: rgba(255, 255, 255, 0.12);
+            border-color: rgba(255, 255, 255, 0.5);
+            color: #fff;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3), 0 0 20px rgba(255, 255, 255, 0.08);
+            transform: translateY(-2px) scale(1.03);
+        }
+
+        .btn:active { transform: translateY(0) scale(0.98); transition-duration: 0.08s; }
+
+        .c-p1 { border-color: rgba(0, 243, 255, 0.5); color: #00f3ff; }
+        .c-p1:hover { background: rgba(0, 243, 255, 0.14); border-color: #00f3ff; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3), 0 0 24px rgba(0, 243, 255, 0.3); }
+
+        .c-p2 { border-color: rgba(255, 0, 85, 0.5); color: #ff0055; }
+        .c-p2:hover { background: rgba(255, 0, 85, 0.14); border-color: #ff0055; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3), 0 0 24px rgba(255, 0, 85, 0.3); }
+
+        .c-p3 { border-color: rgba(0, 255, 102, 0.5); color: #00ff66; }
+        .c-p3:hover { background: rgba(0, 255, 102, 0.14); border-color: #00ff66; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3), 0 0 24px rgba(0, 255, 102, 0.3); }
+
+        .c-p4 { border-color: rgba(255, 204, 0, 0.5); color: #ffcc00; }
+        .c-p4:hover { background: rgba(255, 204, 0, 0.14); border-color: #ffcc00; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3), 0 0 24px rgba(255, 204, 0, 0.3); }
+
+        .btn-danger { border-color: rgba(255, 0, 85, 0.45); color: rgba(255, 80, 110, 0.9); }
+        .btn-danger:hover { background: rgba(255, 0, 85, 0.16); border-color: #ff0055; color: #ff4466; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3), 0 0 24px rgba(255, 0, 85, 0.25); }
+
+        .btn-ghost { border-color: rgba(255, 255, 255, 0.1); color: rgba(255, 255, 255, 0.45); font-size: 0.68rem; }
+        .btn-ghost:hover { border-color: rgba(255, 255, 255, 0.3); color: rgba(255, 255, 255, 0.75); box-shadow: none; transform: translateY(-1px); }
+
+        .menu-top-btns { display: flex; justify-content: center; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+        .menu-top-btns .btn { font-size: 0.68rem; padding: 10px 18px; }
+
+        .player-btns { display: flex; flex-wrap: nowrap; justify-content: center; gap: 10px; margin-top: 8px; }
+
+        .player-btn-group { display: flex; flex-direction: column; align-items: center; gap: 5px; flex: 1 1 0; min-width: 0; }
+        .player-btn-group .btn { width: 100%; padding-left: 6px; padding-right: 6px; }
+
+        .ctrl-hint { font-size: 0.68rem; letter-spacing: 0.5px; opacity: 0.6; margin: 0; }
+        .ctrl-hint.c-p1 { color: #00f3ff; }
+        .ctrl-hint.c-p2 { color: #ff0055; }
+        .ctrl-hint.c-p3 { color: #00ff66; }
+        .ctrl-hint.c-p4 { color: #ffcc00; }
+
+        .diff-btns { display: flex; flex-direction: column; gap: 8px; margin-bottom: 8px; }
+        .diff-btns .btn { width: 100%; display: flex; align-items: center; justify-content: space-between; padding: 14px 22px; }
+        .diff-btns .btn .diff-stars { opacity: 0.6; letter-spacing: 2px; font-size: 0.65rem; }
+
+        .pause-icon { font-size: 2.5rem; margin-bottom: 16px; opacity: 0.7; display: block; }
+        .pause-btns { display: flex; flex-direction: column; gap: 10px; min-width: 240px; }
+        .pause-btns .btn { width: 100%; text-align: center; padding: 15px 28px; }
+
+        #winner-text { font-family: 'Orbitron', sans-serif; font-size: clamp(1.5rem, 4vw, 2.4rem); font-weight: 900; letter-spacing: 4px; text-transform: uppercase; margin-bottom: 10px; }
+        .game-over-sub { font-size: 0.72rem; letter-spacing: 4px; text-transform: uppercase; color: rgba(255,255,255,0.3); margin-bottom: 30px; }
+        .game-over-btns { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
+        .game-over-btns .btn { flex: 1 1 160px; max-width: 220px; padding: 15px 20px; }
+
+        #scoreboard {
+            position: absolute; top: 24px; width: 100%; display: flex; justify-content: space-evenly; padding: 0 5vw;
+            font-family: 'Orbitron', sans-serif; font-size: clamp(2rem, 4.5vw, 3.5rem); font-weight: 700; opacity: 0; transition: opacity 0.5s;
+        }
+        .score { text-shadow: 0 0 16px currentColor, 0 0 32px currentColor; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.6)); }
+        #score1 { color: #00f3ff; }
+        #score2 { color: #ff0055; }
+        #score3 { color: #00ff66; }
+        #score4 { color: #ffcc00; }
+
+        .hidden { display: none !important; }
+
+        #fun-mode-toggle { border-color: rgba(160, 32, 240, 0.5); color: rgba(180, 80, 255, 0.85); font-size: 0.68rem; }
+        #fun-mode-toggle:hover { background: rgba(160, 32, 240, 0.15); border-color: #a020f0; color: #bf5fff; box-shadow: 0 4px 20px rgba(0,0,0,0.3), 0 0 24px rgba(160, 32, 240, 0.3); }
+        #fun-mode-toggle.active { background: rgba(160, 32, 240, 0.25); border-color: #a020f0; color: #d080ff; box-shadow: 0 0 28px rgba(160, 32, 240, 0.45); }
+
+        @keyframes menuFadeIn {
+            from { opacity: 0; transform: translateY(18px) scale(0.97); }
+            to   { opacity: 1; transform: translateY(0)    scale(1); }
+        }
+        .menu:not(.hidden) { animation: menuFadeIn 0.45s cubic-bezier(0.22, 1, 0.36, 1) both; }
+
+        body::before { content: ''; position: fixed; top: -20%; left: -10%; width: 60vw; height: 60vw; background: radial-gradient(ellipse, rgba(0, 243, 255, 0.04) 0%, transparent 70%); pointer-events: none; z-index: 0; }
+        body::after { content: ''; position: fixed; bottom: -20%; right: -10%; width: 60vw; height: 60vw; background: radial-gradient(ellipse, rgba(255, 0, 85, 0.04) 0%, transparent 70%); pointer-events: none; z-index: 0; }
+    </style>
+</head>
+<body>
+
+    <div id="scoreboard">
+        <div id="score1" class="score">0</div>
+        <div id="score2" class="score">0</div>
+        <div id="score3" class="score hidden">0</div>
+        <div id="score4" class="score hidden">0</div>
+    </div>
+    
+    <div id="ui-layer">
+        <!-- Main Menu -->
+        <div id="main-menu" class="menu">
+            <h1 data-i18n="Orbit Pong">Orbit Pong</h1>
+
+            <div class="menu-top-btns">
+                <button id="fun-mode-toggle" class="btn" onclick="toggleFunMode()" data-i18n="FUN MODE: OFF">FUN MODE: OFF</button>
+                <button id="btn-sound-main" class="btn" onclick="toggleSound()" data-i18n="Sound: ON">♪ Sound: ON</button>
+            </div>
+
+            <div class="menu-divider"></div>
+
+            <div class="player-btns">
+                <div class="player-btn-group">
+                    <button class="btn c-p1" onclick="showDifficultyMenu()" data-i18n="1 Player (vs AI)">1 Player vs AI</button>
+                    <p class="ctrl-hint c-p1" data-i18n="Left/Right Arrows">← / → Arrows</p>
+                </div>
+                <div class="player-btn-group">
+                    <button class="btn c-p2" onclick="startGame(2, 0)" data-i18n="2 Players">2 Players</button>
+                    <p class="ctrl-hint c-p2" data-i18n="A / D Keys">A / D Keys</p>
+                </div>
+                <div class="player-btn-group">
+                    <button class="btn c-p3" onclick="startGame(3, 0)" data-i18n="3 Players">3 Players</button>
+                    <p class="ctrl-hint c-p3" data-i18n="V / B Keys">V / B Keys</p>
+                </div>
+                <div class="player-btn-group">
+                    <button class="btn c-p4" onclick="startGame(4, 0)" data-i18n="4 Players">4 Players</button>
+                    <p class="ctrl-hint c-p4" data-i18n="K / L Keys">K / L Keys</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- AI Difficulty Sub-Menu -->
+        <div id="diff-menu" class="menu hidden">
+            <h2 data-i18n="Select AI Difficulty">Select Difficulty</h2>
+            <div class="diff-btns">
+                <button class="btn" onclick="startGame(2, 1)" data-i18n="1 - Very Easy">
+                    <span>Very Easy</span><span class="diff-stars">★☆☆☆☆</span>
+                </button>
+                <button class="btn" onclick="startGame(2, 2)" data-i18n="2 - Easy">
+                    <span>Easy</span><span class="diff-stars">★★☆☆☆</span>
+                </button>
+                <button class="btn" onclick="startGame(2, 3)" data-i18n="3 - Normal">
+                    <span>Normal</span><span class="diff-stars">★★★☆☆</span>
+                </button>
+                <button class="btn" onclick="startGame(2, 4)" data-i18n="4 - Hard">
+                    <span>Hard</span><span class="diff-stars">★★★★☆</span>
+                </button>
+                <button class="btn" onclick="startGame(2, 5)" data-i18n="5 - Unbeatable">
+                    <span>Unbeatable</span><span class="diff-stars">★★★★★</span>
+                </button>
+            </div>
+            <button class="btn btn-ghost" onclick="resetToMenu()" data-i18n="Cancel">← Back</button>
+        </div>
+
+        <!-- Pause Menu -->
+        <div id="pause-menu" class="menu hidden">
+            <span class="pause-icon">⏸</span>
+            <h2 data-i18n="Game Paused">Paused</h2>
+            <div class="pause-btns">
+                <button class="btn c-p1" onclick="togglePause()" data-i18n="Resume">▶ Resume</button>
+                <button id="btn-sound" class="btn" onclick="toggleSound()" data-i18n="Sound: ON">♪ Sound: ON</button>
+                <!-- Show Ads safely upon transitioning state to Main Menu -->
+                <button class="btn btn-danger" onclick="YandexManager.showInterstitial(() => resetToMenu())" data-i18n="Quit to Menu">Quit to Menu</button>
+            </div>
+        </div>
+
+        <!-- Game Over Menu -->
+        <div id="game-over-menu" class="menu hidden">
+            <h2 id="winner-text">Player 1 Wins!</h2>
+            <p class="game-over-sub" data-i18n="Game Over">Game Over</p>
+            <!-- Interstitials are best triggered BETWEEN levels/sessions -->
+            <div class="game-over-btns">
+                <button class="btn c-p1" onclick="YandexManager.showInterstitial(() => startGame(activePlayersCount, currentAiDiff))" data-i18n="Play Again">▶ Play Again</button>
+                <button class="btn btn-ghost" onclick="YandexManager.showInterstitial(() => resetToMenu())" data-i18n="Main Menu">Main Menu</button>
+            </div>
+        </div>
+    </div>
+
+    <canvas id="gameCanvas"></canvas>
+
+<script>
+    /**
+     * ==========================================
+     * YANDEX SDK & MODERATION MANAGER
+     * ==========================================
+     */
+    class YandexManager {
+        static ysdk = null;
+        static player = null;
+        static payments = null;
+        static lang = 'en';
+        static isAdPlaying = false;
+        static isSystemPaused = false; 
+        
+        static langFallbacks = {
+            be: 'ru', kk: 'ru', uk: 'ru', uz: 'ru'
+        };
+
+        static translations = {
+            ru: {
+                'Orbit Pong': 'Орбита Понг',
+                'FUN MODE: OFF': 'ФАН РЕЖИМ: ВЫКЛ',
+                'FUN MODE: ON': 'ФАН РЕЖИМ: ВКЛ',
+                'Left/Right Arrows': 'Стрелки Влево/Вправо',
+                'A / D Keys': 'Клавиши A / D',
+                'V / B Keys': 'Клавиши V / B',
+                'K / L Keys': 'Клавиши K / L',
+                '1 Player (vs AI)': '1 Игрок (vs ИИ)',
+                '2 Players': '2 Игрока',
+                '3 Players': '3 Игрока',
+                '4 Players': '4 Игрока',
+                'Select AI Difficulty': 'Сложность ИИ',
+                '1 - Very Easy': '1 - Очень Легко',
+                '2 - Easy': '2 - Легко',
+                '3 - Normal': '3 - Нормально',
+                '4 - Hard': '4 - Сложно',
+                '5 - Unbeatable': '5 - Невозможно',
+                'Cancel': 'Отмена',
+                'Game Paused': 'Пауза',
+                'Game Over': 'Игра окончена',
+                'Resume': 'Продолжить',
+                'Sound: ON': 'Звук: ВКЛ',
+                'Sound: OFF': 'Звук: ВЫКЛ',
+                'Quit to Menu': 'В Главное Меню',
+                'Play Again': 'Играть Снова',
+                'Main Menu': 'Главное Меню',
+                'PlayerWins': 'Игрок {X} Победил!'
+            },
+            tr: {
+                'Orbit Pong': 'Orbit Pong',
+                'FUN MODE: OFF': 'EĞLENCE MODU: KAPALI',
+                'FUN MODE: ON': 'EĞLENCE MODU: AÇIK',
+                'Left/Right Arrows': 'Sol/Sağ Oklar',
+                'A / D Keys': 'A / D Tuşları',
+                'V / B Keys': 'V / B Tuşları',
+                'K / L Keys': 'K / L Tuşları',
+                '1 Player (vs AI)': '1 Oyuncu (Yapay Zeka)',
+                '2 Players': '2 Oyuncu',
+                '3 Players': '3 Oyuncu',
+                '4 Players': '4 Oyuncu',
+                'Select AI Difficulty': 'Zorluk Seç',
+                '1 - Very Easy': '1 - Çok Kolay',
+                '2 - Easy': '2 - Kolay',
+                '3 - Normal': '3 - Normal',
+                '4 - Hard': '4 - Zor',
+                '5 - Unbeatable': '5 - Yenilmez',
+                'Cancel': 'İptal',
+                'Game Paused': 'Oyun Duraklatıldı',
+                'Resume': 'Devam Et',
+                'Sound: ON': 'Ses: AÇIK',
+                'Sound: OFF': 'Ses: KAPALI',
+                'Quit to Menu': 'Ana Menüye Dön',
+                'Play Again': 'Tekrar Oyna',
+                'Main Menu': 'Ana Menü',
+                'PlayerWins': 'Oyuncu {X} Kazandı!'
+            }
+        };
+
+        static async init() {
+            const urlLang = new URLSearchParams(location.search).get('lang');
+            if (urlLang) this.lang = urlLang;
+            else if (navigator.language?.toLowerCase().startsWith('ru')) this.lang = 'ru';
+            document.documentElement.lang = this.lang;
+            this.applyTranslations();
+        }
+
+        static gameReady() {}
+
+        static getResolvedLang() {
+            let lang = this.lang;
+            if (!this.translations[lang] && this.langFallbacks[lang]) {
+                lang = this.langFallbacks[lang];
+            }
+            if (!this.translations[lang]) {
+                lang = 'en';
+            }
+            return lang;
+        }
+
+        static getText(key) {
+            const resolved = this.getResolvedLang();
+            return (this.translations[resolved] && this.translations[resolved][key]) || key;
+        }
+
+        static applyTranslations() {
+            document.querySelectorAll('[data-i18n]').forEach(el => {
+                const key = el.getAttribute('data-i18n');
+                el.innerText = this.getText(key);
+            });
+        }
+
+        static pauseGameForSystem() {
+            this.isSystemPaused = true;
+            AudioSys.sysMuted = true;
+            // Instantly suspend the entire audio context to guarantee 0 audio leak
+            if (AudioSys.ctx && AudioSys.ctx.state === 'running') {
+                AudioSys.ctx.suspend();
+            }
+        }
+
+        static resumeGameFromSystem() {
+            this.isSystemPaused = false;
+            if (!this.isAdPlaying) {
+                AudioSys.sysMuted = false;
+                if (!AudioSys.muted && AudioSys.ctx && AudioSys.ctx.state === 'suspended') {
+                    AudioSys.ctx.resume();
+                }
+            }
+        }
+
+        static showInterstitial(onDone) {
+            if (onDone) onDone();
+        }
+
+        static showRewarded(onReward, onDone) {
+            if (onReward) onReward();
+            if (onDone) onDone();
+        }
+    }
+
+    window.addEventListener('DOMContentLoaded', async () => {
+        await YandexManager.init();
+        YandexManager.gameReady();
+    });
+    window.addEventListener('blur', () => YandexManager.pauseGameForSystem());
+    window.addEventListener('focus', () => YandexManager.resumeGameFromSystem());
+    
+    document.addEventListener('contextmenu', (e) => e.preventDefault());
+    document.addEventListener('selectstart', (e) => e.preventDefault());
+    document.addEventListener('dragstart', (e) => e.preventDefault());
+
+
+    /**
+     * ==========================================
+     * CONFIGURATION
+     * ==========================================
+     */
+    const BASE_CONFIG = {
+        logicalSize: 1000,           
+        arenaRadius: 380,            
+        ballRadius: 10,              
+        ballTrailLength: 20,         
+        platformRadiusOffset: 25,    
+        platformThickness: 16,       
+        
+        aiLevels: [
+            { speedMult: 0.40, delay: 0.20 },
+            { speedMult: 0.60, delay: 0.10 },
+            { speedMult: 0.85, delay: 0.05 },
+            { speedMult: 1.05, delay: 0.01 },
+            { speedMult: 1.30, delay: 0.00 }
+        ],
+        colors: {
+            bg: '#050510',           
+            arena: '#1a1a3a',        
+            neutral: '#ffffff',
+            players: ['#00f3ff', '#ff0055', '#00ff66', '#ffcc00']
+        },
+        bloomAmount: 15,             
+        particlesPerHit: 35          
+    };
+
+    const NORMAL_MODE_SETTINGS = {
+        winningScore: 7,             
+        initialBallSpeed: 350,       
+        ballSpeedIncrease: 40,       
+        maxBallSpeed: 2000,          
+        platformInitialSpeed: 4.5,   
+        platformSpeedIncrease: 0.13, 
+        platformMaxSpeed: 13.0,
+        platformInitialAngle: Math.PI / 4, 
+        platformShrinkRate: 0.025,   
+        platformMinAngle: Math.PI / 20, 
+    };
+
+    const FUN_MODE_SETTINGS = {
+        winningScore: 7,             
+        initialBallSpeed: 350,       
+        ballSpeedIncrease: 30,       
+        maxBallSpeed: 900,          
+        platformInitialSpeed: 10,   
+        platformSpeedIncrease: 0.10, 
+        platformMaxSpeed: 10.0,
+        platformInitialAngle: Math.PI / 2.5, 
+        platformShrinkRate: 0.02,   
+        platformMinAngle: Math.PI / 15, 
+    };
+
+    let CONFIG = { ...BASE_CONFIG, ...NORMAL_MODE_SETTINGS };
+
+    /**
+     * ==========================================
+     * AUDIO SYSTEM
+     * ==========================================
+     */
+    const AudioSys = {
+        ctx: null, muted: false, sysMuted: false,
+        init() {
+            if (!this.ctx) this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+            if (this.ctx.state === 'suspended' && !this.muted && !this.sysMuted) this.ctx.resume();
+        },
+        play(freq, type, duration, vol) {
+            if (this.muted || this.sysMuted) return;
+            this.init();
+            try {
+                let osc = this.ctx.createOscillator();
+                let gain = this.ctx.createGain();
+                osc.type = type;
+                osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+                gain.gain.setValueAtTime(vol, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + duration);
+                osc.connect(gain); gain.connect(this.ctx.destination);
+                osc.start(); osc.stop(this.ctx.currentTime + duration);
+            } catch(e) {} 
+        },
+        hitPaddle(id) { this.play(300 + id * 150, 'square', 0.15, 0.1); },
+        hitWall() { this.play(150, 'sawtooth', 0.2, 0.1); },
+        score() { this.play(800, 'sine', 0.5, 0.2); this.play(1200, 'sine', 0.6, 0.2); },
+        gameOver() { this.play(200, 'sawtooth', 1.0, 0.3); this.play(150, 'square', 1.0, 0.3); }
+    };
+
+    /**
+     * ==========================================
+     * GLOBAL STATE & INPUT
+     * ==========================================
+     */
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d', { alpha: false }); 
+    
+    const menus = {
+        main: document.getElementById('main-menu'),
+        diff: document.getElementById('diff-menu'),
+        pause: document.getElementById('pause-menu'),
+        gameOver: document.getElementById('game-over-menu'),
+        scoreboard: document.getElementById('scoreboard'),
+        winnerText: document.getElementById('winner-text'),
+        funToggle: document.getElementById('fun-mode-toggle'),
+        scores: [
+            document.getElementById('score1'),
+            document.getElementById('score2'),
+            document.getElementById('score3'),
+            document.getElementById('score4')
+        ]
+    };
+
+    let scaleFactor = 1;
+    let lastTime = 0;
+    let gameState = 'MENU'; 
+    let activePlayersCount = 2;
+    let currentAiDiff = 0; 
+    let timeSinceServe = 0;
+    let screenshake = 0;
+    
+    // FUN MODE SHAPES
+    let isFunMode = false;
+    const FUN_SHAPES = [
+        'square', 'triangle', 'star', 'hexagon', 'cross', 
+        'parallelogram', 'rhombus', 'wide_triangle', 'kite', 'chevron'
+    ];
+    let currentShapeType = 'circle';
+    
+    let wallTrack = null;
+    let orbitTrack = null;
+    let ball;
+    let platforms = [];
+    let particles = [];
+    let backgroundParticles = [];
+    let playerScores = [0, 0, 0, 0];
+
+    const keys = {};
+    window.addEventListener('keydown', (e) => {
+        keys[e.code] = true;
+        if(!AudioSys.ctx && e.code) AudioSys.init();
+        if ((e.code === 'KeyP' || e.code === 'Escape') && !YandexManager.isSystemPaused) {
+            if (gameState === 'PLAYING' || gameState === 'PAUSED') togglePause();
+        }
+    });
+    window.addEventListener('keyup', (e) => keys[e.code] = false);
+
+    window.addEventListener('touchstart', (e) => {
+        if(!AudioSys.ctx) AudioSys.init();
+        for (let i = 0; i < e.changedTouches.length; i++) {
+            let t = e.changedTouches[i];
+            if (t.clientX < window.innerWidth / 2) keys['ArrowLeft'] = true;
+            else keys['ArrowRight'] = true;
+        }
+    });
+    window.addEventListener('touchend', (e) => {
+        keys['ArrowLeft'] = false;
+        keys['ArrowRight'] = false;
+        for (let i = 0; i < e.touches.length; i++) {
+            let t = e.touches[i];
+            if (t.clientX < window.innerWidth / 2) keys['ArrowLeft'] = true;
+            else keys['ArrowRight'] = true;
+        }
+    });
+
+    const controlMap = [
+        { left: 'ArrowLeft', right: 'ArrowRight' },
+        { left: 'KeyA', right: 'KeyD' },
+        { left: 'KeyV', right: 'KeyB' },
+        { left: 'KeyK', right: 'KeyL' }
+    ];
+
+    function resize() {
+        // 1. Get the display's pixel ratio (default to 1 for standard screens)
+        const dpr = window.devicePixelRatio || 1;
+        
+        // 2. Multiply the canvas internal memory size by the DPR for crispness
+        canvas.width = window.innerWidth * dpr;
+        canvas.height = window.innerHeight * dpr;
+        
+        // 3. Force the CSS display size to match the standard viewport size 
+        // (This shrinks the high-res canvas down to fit exactly on the screen)
+        canvas.style.width = window.innerWidth + 'px';
+        canvas.style.height = window.innerHeight + 'px';
+
+        // 4. scaleFactor automatically handles the math because canvas.width/height are now larger!
+        scaleFactor = Math.min(canvas.width / CONFIG.logicalSize, canvas.height / CONFIG.logicalSize) * 0.95;
+    }
+    window.addEventListener('resize', resize);
+    resize();
+
+    class Track {
+        constructor(points) {
+            this.points = points;
+            this.edges = [];
+            this.length = 0;
+            for(let i=0; i<points.length; i++) {
+                let p1 = points[i], p2 = points[(i+1)%points.length];
+                let dx = p2.x - p1.x, dy = p2.y - p1.y;
+                let len = Math.hypot(dx, dy);
+                this.edges.push({
+                    p1, p2, dx, dy, len, 
+                    nx: -dy/len, ny: dx/len,
+                    startDist: this.length
+                });
+                this.length += len;
+            }
+        }
+        getRangePoints(startDist, length) {
+            let pts = [];
+            let d = ((startDist % this.length) + this.length) % this.length;
+            let remaining = length;
+            let edgeIdx = 0;
+            for (let i=0; i<this.edges.length; i++) {
+                if (d >= this.edges[i].startDist && d < this.edges[i].startDist + this.edges[i].len) {
+                    edgeIdx = i; break;
+                }
+            }
+            let e = this.edges[edgeIdx];
+            let t = (d - e.startDist) / e.len;
+            pts.push({ x: e.p1.x + t * e.dx, y: e.p1.y + t * e.dy });
+            while (remaining > 0.001) {
+                let eDistLeft = (e.startDist + e.len) - d;
+                if (remaining <= eDistLeft) {
+                    d += remaining;
+                    t = (d - e.startDist) / e.len;
+                    pts.push({ x: e.p1.x + t * e.dx, y: e.p1.y + t * e.dy });
+                    break;
+                } else {
+                    remaining -= eDistLeft;
+                    edgeIdx = (edgeIdx + 1) % this.edges.length;
+                    e = this.edges[edgeIdx];
+                    pts.push(e.p1);
+                    d = e.startDist;
+                }
+            }
+            return pts;
+        }
+        raycast(p0, p1) {
+            let closest = null;
+            let minT = 1.0;
+            for (let e of this.edges) {
+                let s1_x = p1.x - p0.x, s1_y = p1.y - p0.y;
+                let s2_x = e.p2.x - e.p1.x, s2_y = e.p2.y - e.p1.y;
+                let denom = (-s2_x * s1_y + s1_x * s2_y);
+                if (Math.abs(denom) < 0.0001) continue; 
+                let s = (-s1_y * (p0.x - e.p1.x) + s1_x * (p0.y - e.p1.y)) / denom;
+                let t = ( s2_x * (p0.y - e.p1.y) - s2_y * (p0.x - e.p1.x)) / denom;
+                if (s >= 0 && s <= 1 && t >= 0 && t <= minT) {
+                    minT = t;
+                    closest = {
+                        x: p0.x + t * s1_x, y: p0.y + t * s1_y,
+                        normal: { x: e.nx, y: e.ny },
+                        dist: e.startDist + s * e.len, t: t
+                    };
+                }
+            }
+            return closest;
+        }
+    }
+
+    function buildShapes() {
+        let type = currentShapeType;
+        let wallRadius = CONFIG.arenaRadius;
+        let orbitRadius = CONFIG.arenaRadius - CONFIG.platformRadiusOffset;
+        
+        function getPts(radius) {
+            let pts = [];
+            if (type === 'circle') {
+                for(let i=0; i<64; i++) {
+                    let a = i/64 * Math.PI*2;
+                    pts.push({x: Math.cos(a)*radius, y: Math.sin(a)*radius});
+                }
+            } else if (type === 'square') {
+                pts = [{x:-1, y:-1}, {x:1, y:-1}, {x:1, y:1}, {x:-1, y:1}].map(p => ({x: p.x*radius, y: p.y*radius}));
+            } else if (type === 'triangle') {
+                for(let i=0; i<3; i++) {
+                    let a = i/3 * Math.PI*2 - Math.PI/2;
+                    pts.push({x: Math.cos(a)*radius, y: Math.sin(a)*radius});
+                }
+            } else if (type === 'star') {
+                for(let i=0; i<10; i++) {
+                    let a = i/10 * Math.PI*2 - Math.PI/2;
+                    let r = i%2===0 ? radius : radius*0.45;
+                    pts.push({x: Math.cos(a)*r, y: Math.sin(a)*r});
+                }
+            } else if (type === 'hexagon') {
+                 for(let i=0; i<6; i++) {
+                    let a = i/6 * Math.PI*2 - Math.PI/2;
+                    pts.push({x: Math.cos(a)*radius, y: Math.sin(a)*radius});
+                }
+            } else if (type === 'cross') {
+                let w = 0.35;
+                pts = [
+                    {x:-w,y:-1}, {x:w,y:-1}, {x:w,y:-w}, {x:1,y:-w}, {x:1,y:w}, {x:w,y:w},
+                    {x:w,y:1}, {x:-w,y:1}, {x:-w,y:w}, {x:-1,y:w}, {x:-1,y:-w}, {x:-w,y:-w}
+                ].map(p => ({x: p.x*radius, y: p.y*radius}));
+            } else if (type === 'parallelogram') {
+                pts = [{x:-0.8, y:-0.6}, {x:0.4, y:-0.6}, {x:0.8, y:0.6}, {x:-0.4, y:0.6}].map(p => ({x: p.x*radius, y: p.y*radius}));
+            } else if (type === 'rhombus') {
+                pts = [{x:0, y:-1}, {x:0.75, y:0}, {x:0, y:1}, {x:-0.75, y:0}].map(p => ({x: p.x*radius, y: p.y*radius}));
+            } else if (type === 'wide_triangle') {
+                pts = [{x:0, y:-0.7}, {x:1, y:0.7}, {x:-1, y:0.7}].map(p => ({x: p.x*radius, y: p.y*radius}));
+            } else if (type === 'kite') {
+                pts = [{x:0, y:-1}, {x:0.8, y:-0.1}, {x:0, y:0.8}, {x:-0.8, y:-0.1}].map(p => ({x: p.x*radius, y: p.y*radius}));
+            } else if (type === 'chevron') {
+                pts = [{x:0, y:-0.8}, {x:0.8, y:0.6}, {x:0, y:0.1}, {x:-0.8, y:0.6}].map(p => ({x: p.x*radius, y: p.y*radius}));
+            }
+            return pts;
+        }
+        
+        wallTrack = new Track(getPts(wallRadius));
+        orbitTrack = new Track(getPts(orbitRadius));
+    }
+
+    function getWrapDiff(a, b, max) {
+        let diff = (b - a + max/2) % max - max/2;
+        return diff < -max/2 ? diff + max : diff;
+    }
+
+    class Particle {
+        constructor(x, y, color, speed, size, life) {
+            this.x = x; this.y = y;
+            let angle = Math.random() * Math.PI * 2;
+            let vel = Math.random() * speed;
+            this.vx = Math.cos(angle) * vel;
+            this.vy = Math.sin(angle) * vel;
+            this.color = color;
+            this.size = Math.random() * size + 2;
+            this.maxLife = life * (0.5 + Math.random());
+            this.life = this.maxLife;
+        }
+        update(dt) {
+            this.x += this.vx * dt;
+            this.y += this.vy * dt;
+            this.life -= dt;
+        }
+        draw(ctx) {
+            ctx.globalAlpha = Math.max(0, this.life / this.maxLife);
+            ctx.fillStyle = this.color;
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.globalAlpha = 1;
+        }
+    }
+
+    class Platform {
+        constructor(index, isBot, aiLevel) {
+            this.index = index; 
+            this.id = index + 1; 
+            this.color = CONFIG.colors.players[index];
+            this.controls = controlMap[index];
+            this.isBot = isBot;
+            this.aiLevel = aiLevel;
+            this.position = (index / activePlayersCount) * orbitTrack.length;
+            this.hitTimer = 0;
+            this.linearVelocity = 0;
+        }
+        update(dt) {
+            let move = 0;
+            let radiusProxy = CONFIG.arenaRadius - CONFIG.platformRadiusOffset;
+            let initialLinearSpeed = CONFIG.platformInitialSpeed * radiusProxy;
+            let linearSpeedInc = CONFIG.platformSpeedIncrease * radiusProxy;
+            let maxLinearSpeed = CONFIG.platformMaxSpeed * radiusProxy;
+            let speedLimit = Math.min(maxLinearSpeed, initialLinearSpeed + (linearSpeedInc * timeSinceServe));
+
+            if (!this.isBot) {
+                let leftPressed = keys[this.controls.left];
+                let rightPressed = keys[this.controls.right];
+                if (this.id === 1 && currentAiDiff > 0) {
+                    if (keys['KeyA']) leftPressed = true;
+                    if (keys['KeyD']) rightPressed = true;
+                }
+                if (leftPressed) move += 1;
+                if (rightPressed) move -= 1;
+            } else {
+                let ai = CONFIG.aiLevels[this.aiLevel - 1];
+                let targetPos = this.position;
+                if (ball.targetId === this.id || ball.targetId === null) {
+                    let p0 = {x: ball.x, y: ball.y};
+                    let p1 = {x: ball.x + ball.vx * 2, y: ball.y + ball.vy * 2}; 
+                    let hit = orbitTrack.raycast(p0, p1);
+                    if (hit) targetPos = hit.dist;
+                } else {
+                    let p0 = {x: 0, y: 0};
+                    let p1 = {x: ball.x * 2, y: ball.y * 2};
+                    let hit = orbitTrack.raycast(p0, p1);
+                    let ballDist = hit ? hit.dist : 0;
+                    let diff = getWrapDiff(this.position, ballDist, orbitTrack.length);
+                    if (Math.abs(diff) < orbitTrack.length / 4) {
+                        targetPos = this.position + (diff > 0 ? -orbitTrack.length/4 : orbitTrack.length/4);
+                    }
+                }
+                let diff = getWrapDiff(this.position, targetPos, orbitTrack.length);
+                if (Math.abs(diff) > orbitTrack.length * ai.delay) {
+                    move = diff > 0 ? 1 : -1;
+                }
+                speedLimit *= ai.speedMult;
+            }
+
+            this.linearVelocity = move * speedLimit;
+            this.position += this.linearVelocity * dt;
+            this.position = ((this.position % orbitTrack.length) + orbitTrack.length) % orbitTrack.length;
+            if (this.hitTimer > 0) this.hitTimer -= dt;
+        }
+        draw(ctx) {
+            ctx.save();
+            let radiusProxy = CONFIG.arenaRadius - CONFIG.platformRadiusOffset;
+            let shrinkRateLin = CONFIG.platformShrinkRate * radiusProxy;
+            let currentLength = Math.max(
+                CONFIG.platformMinAngle * radiusProxy, 
+                (CONFIG.platformInitialAngle * radiusProxy) - shrinkRateLin * timeSinceServe
+            );
+            let popScale = this.hitTimer > 0 ? (this.hitTimer / 0.2) : 0;
+            let currentThickness = CONFIG.platformThickness + popScale * 10;
+            let pts = orbitTrack.getRangePoints(this.position - currentLength/2, currentLength);
+            
+            ctx.strokeStyle = this.color;
+            ctx.lineWidth = currentThickness;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            ctx.shadowColor = this.color;
+            ctx.shadowBlur = CONFIG.bloomAmount + popScale * 20;
+
+            if (pts.length > 0) {
+                ctx.beginPath();
+                ctx.moveTo(pts[0].x, pts[0].y);
+                for(let i=1; i<pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
+                ctx.stroke();
+                
+                ctx.strokeStyle = '#fff';
+                ctx.lineWidth = currentThickness * 0.3;
+                ctx.shadowBlur = 0;
+                ctx.stroke();
+            }
+            ctx.restore();
+        }
+    }
+
+    class Ball {
+        constructor() { this.reset(); }
+        reset() {
+            this.x = 0; this.y = 0;
+            let startAngle = Math.random() * Math.PI * 2;
+            this.vx = Math.cos(startAngle) * CONFIG.initialBallSpeed;
+            this.vy = Math.sin(startAngle) * CONFIG.initialBallSpeed;
+            this.targetId = null; 
+            this.lastHitterId = null;
+            this.color = CONFIG.colors.neutral;
+            this.trail = [];
+        }
+        update(dt) {
+            let currentSpeed = Math.hypot(this.vx, this.vy);
+            let targetSpeed = Math.min(CONFIG.maxBallSpeed, CONFIG.initialBallSpeed + CONFIG.ballSpeedIncrease * timeSinceServe);
+            
+            if (currentSpeed > 0) {
+                this.vx = (this.vx / currentSpeed) * targetSpeed;
+                this.vy = (this.vy / currentSpeed) * targetSpeed;
+            }
+            let px = this.x; let py = this.y;
+            this.x += this.vx * dt;
+            this.y += this.vy * dt;
+
+            this.trail.push({x: this.x, y: this.y});
+            if (this.trail.length > CONFIG.ballTrailLength) this.trail.shift();
+
+            this.handleCollisions(px, py);
+        }
+        handleCollisions(px, py) {
+            let p0 = {x: px, y: py};
+            let p1 = {x: this.x, y: this.y};
+            let orbitHit = orbitTrack.raycast(p0, p1);
+            if (orbitHit) {
+                let dot = this.vx * orbitHit.normal.x + this.vy * orbitHit.normal.y;
+                if (dot < 0) {
+                    let radiusProxy = CONFIG.arenaRadius - CONFIG.platformRadiusOffset;
+                    let currentLength = Math.max(
+                        CONFIG.platformMinAngle * radiusProxy, 
+                        (CONFIG.platformInitialAngle * radiusProxy) - (CONFIG.platformShrinkRate * radiusProxy) * timeSinceServe
+                    );
+                    for (let plat of platforms) {
+                        let diff = Math.abs(getWrapDiff(orbitHit.dist, plat.position, orbitTrack.length));
+                        if (diff <= currentLength / 2 + 5) {
+                            this.hitPlatform(plat, orbitHit);
+                            return; 
+                        }
+                    }
+                }
+            }
+            let wallHit = wallTrack.raycast(p0, p1);
+            if (wallHit) {
+                if (this.targetId !== null) {
+                    if (this.lastHitterId !== null && this.lastHitterId !== this.targetId) {
+                        scorePoint(this.lastHitterId);
+                    } else {
+                        this.targetId = null;
+                        this.color = CONFIG.colors.neutral;
+                        this.bounce(wallHit);
+                    }
+                } else {
+                    this.bounce(wallHit);
+                }
+            }
+        }
+        hitPlatform(plat, hit) {
+            plat.hitTimer = 0.2;
+            createExplosion(hit.x, hit.y, plat.color);
+            screenshake = 5;
+            AudioSys.hitPaddle(plat.id);
+
+            this.lastHitterId = plat.id;
+            let nextId = (plat.index + 1) % activePlayersCount;
+            this.targetId = nextId + 1; 
+            this.color = CONFIG.colors.players[nextId];
+            this.bounce(hit, plat.linearVelocity);
+        }
+        bounce(hit, spinVelocity = 0) {
+            let dot = this.vx * hit.normal.x + this.vy * hit.normal.y;
+            if (dot < 0) {
+                this.vx = this.vx - 2 * dot * hit.normal.x;
+                this.vy = this.vy - 2 * dot * hit.normal.y;
+                if (spinVelocity !== 0) {
+                    let tx = -hit.normal.y;
+                    let ty = hit.normal.x;
+                    this.vx += tx * spinVelocity * 0.15;
+                    this.vy += ty * spinVelocity * 0.15;
+                }
+                this.x = hit.x + hit.normal.x * 2;
+                this.y = hit.y + hit.normal.y * 2;
+                if (spinVelocity === 0) {
+                    createExplosion(hit.x, hit.y, CONFIG.colors.neutral);
+                    AudioSys.hitWall();
+                }
+            }
+        }
+        draw(ctx) {
+            if (this.trail.length > 1) {
+                ctx.save();
+                ctx.beginPath();
+                ctx.moveTo(this.trail[0].x, this.trail[0].y);
+                for (let i = 1; i < this.trail.length; i++) ctx.lineTo(this.trail[i].x, this.trail[i].y);
+                ctx.lineWidth = CONFIG.ballRadius * 1.5;
+                ctx.lineCap = 'round';
+                ctx.lineJoin = 'round';
+                
+                let gradient = ctx.createLinearGradient(this.trail[0].x, this.trail[0].y, this.x, this.y);
+                gradient.addColorStop(0, 'rgba(0,0,0,0)');
+                gradient.addColorStop(1, this.color);
+                ctx.strokeStyle = gradient;
+                
+                ctx.globalCompositeOperation = 'lighter';
+                ctx.stroke();
+                ctx.restore();
+            }
+            ctx.save();
+            ctx.translate(this.x, this.y);
+            let speed = Math.hypot(this.vx, this.vy);
+            let angle = Math.atan2(this.vy, this.vx);
+            let stretch = Math.min(speed / CONFIG.maxBallSpeed * 0.8, 0.8); 
+            ctx.rotate(angle);
+            ctx.scale(1 + stretch, 1 - stretch * 0.4); 
+            ctx.fillStyle = this.color;
+            ctx.shadowColor = this.color;
+            ctx.shadowBlur = CONFIG.bloomAmount * 1.5;
+            ctx.beginPath();
+            ctx.arc(0, 0, CONFIG.ballRadius, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = '#fff';
+            ctx.shadowBlur = 0;
+            ctx.beginPath();
+            ctx.arc(0, 0, CONFIG.ballRadius * 0.4, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+        }
+    }
+
+    function initBackgroundParticles() {
+        backgroundParticles = [];
+        for (let i = 0; i < 150; i++) {
+            backgroundParticles.push({
+                r: Math.random() * CONFIG.arenaRadius,
+                a: Math.random() * Math.PI * 2,
+                speed: Math.random() * 15 + 5,
+                size: Math.random() * 2 + 1,
+                alpha: Math.random() * 0.5
+            });
+        }
+    }
+
+    function updateBackgroundParticles(dt) {
+        for (let p of backgroundParticles) {
+            p.a += (p.speed / p.r) * dt * 0.5;
+            p.r += p.speed * dt;
+            if (p.r > CONFIG.arenaRadius) {
+                p.r = 10; 
+                p.a = Math.random() * Math.PI * 2;
+            }
+        }
+    }
+
+    function createExplosion(x, y, color) {
+        for (let i = 0; i < CONFIG.particlesPerHit; i++) {
+            particles.push(new Particle(x, y, color, 500, 4, 0.6));
+        }
+    }
+
+    function toggleFunMode() {
+        isFunMode = !isFunMode;
+        let key = isFunMode ? "FUN MODE: ON" : "FUN MODE: OFF";
+        menus.funToggle.setAttribute('data-i18n', key);
+        menus.funToggle.innerText = YandexManager.getText(key);
+        if (isFunMode) menus.funToggle.classList.add('active');
+        else menus.funToggle.classList.remove('active');
+    }
+
+    function showDifficultyMenu() {
+        menus.main.classList.add('hidden');
+        menus.diff.classList.remove('hidden');
+    }
+
+    function startGame(players, aiLevel) {
+        CONFIG = { ...BASE_CONFIG, ...(isFunMode ? FUN_MODE_SETTINGS : NORMAL_MODE_SETTINGS) };
+        AudioSys.init();
+        activePlayersCount = players;
+        currentAiDiff = aiLevel;
+        playerScores = [0, 0, 0, 0];
+        
+        if (isFunMode) {
+            currentShapeType = FUN_SHAPES[Math.floor(Math.random() * FUN_SHAPES.length)];
+        } else {
+            currentShapeType = 'circle';
+        }
+        
+        menus.main.classList.add('hidden');
+        menus.diff.classList.add('hidden');
+        menus.pause.classList.add('hidden');
+        menus.gameOver.classList.add('hidden');
+        menus.scoreboard.style.opacity = '1';
+        
+        for (let i=0; i<4; i++) {
+            if (i < players) menus.scores[i].classList.remove('hidden');
+            else menus.scores[i].classList.add('hidden');
+        }
+        updateScoreboard();
+        buildShapes();
+
+        platforms = [];
+        for (let i=0; i<players; i++) {
+            let isBot = (aiLevel > 0 && i === 1);
+            platforms.push(new Platform(i, isBot, aiLevel));
+        }
+
+        ball = new Ball();
+        initBackgroundParticles();
+        particles = [];
+        
+        timeSinceServe = 0;
+        lastTime = performance.now();
+        gameState = 'PLAYING';
+    }
+
+    function scorePoint(winnerId) {
+        let wIndex = winnerId - 1;
+        playerScores[wIndex]++;
+        updateScoreboard();
+        screenshake = 15;
+        createExplosion(ball.x, ball.y, CONFIG.colors.players[wIndex]);
+        AudioSys.score();
+        
+        if (playerScores[wIndex] >= CONFIG.winningScore) {
+            endGame(winnerId);
+        } else {
+            if (isFunMode) {
+                let newShape = currentShapeType;
+                while (newShape === currentShapeType) {
+                    newShape = FUN_SHAPES[Math.floor(Math.random() * FUN_SHAPES.length)];
+                }
+                currentShapeType = newShape;
+                let oldLen = orbitTrack.length;
+                buildShapes();
+                for (let plat of platforms) {
+                    let pct = plat.position / oldLen;
+                    plat.position = pct * orbitTrack.length;
+                }
+            }
+            ball.reset();
+            timeSinceServe = 0;
+        }
+    }
+
+    function updateScoreboard() {
+        for (let i=0; i<4; i++) menus.scores[i].innerText = playerScores[i];
+    }
+
+    function endGame(winnerId) {
+        gameState = 'GAMEOVER';
+        AudioSys.gameOver();
+        menus.scoreboard.style.opacity = '0';
+        
+        let winTextRaw = YandexManager.getText('PlayerWins') || 'Player {X} Wins!';
+        menus.winnerText.innerText = winTextRaw.replace('{X}', winnerId);
+        
+        menus.winnerText.style.color = CONFIG.colors.players[winnerId - 1];
+        menus.winnerText.style.textShadow = `0 0 20px ${CONFIG.colors.players[winnerId - 1]}`;
+        
+        setTimeout(() => { menus.gameOver.classList.remove('hidden'); }, 1000);
+    }
+
+    function togglePause() {
+        if (gameState === 'PLAYING') {
+            gameState = 'PAUSED';
+            menus.pause.classList.remove('hidden');
+        } else if (gameState === 'PAUSED') {
+            gameState = 'PLAYING';
+            menus.pause.classList.add('hidden');
+            lastTime = performance.now(); 
+        }
+    }
+    
+    function toggleSound() {
+        AudioSys.muted = !AudioSys.muted;
+        let key = AudioSys.muted ? "Sound: OFF" : "Sound: ON";
+        let label = (AudioSys.muted ? '♪ ' : '♪ ') + YandexManager.getText(key);
+        ['btn-sound', 'btn-sound-main'].forEach(id => {
+            let btn = document.getElementById(id);
+            if (btn) { btn.setAttribute('data-i18n', key); btn.innerText = label; }
+        });
+    }
+
+    function resetToMenu() {
+        gameState = 'MENU';
+        menus.diff.classList.add('hidden');
+        menus.pause.classList.add('hidden');
+        menus.gameOver.classList.add('hidden');
+        menus.scoreboard.style.opacity = '0';
+        menus.main.classList.remove('hidden');
+    }
+
+    function drawArena(ctx) {
+        ctx.save();
+        let bgGradient = ctx.createRadialGradient(0, 0, 0, 0, 0, CONFIG.arenaRadius);
+        bgGradient.addColorStop(0, '#112');
+        bgGradient.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = bgGradient;
+        ctx.beginPath();
+        ctx.arc(0, 0, CONFIG.arenaRadius, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = '#fff';
+        for (let p of backgroundParticles) {
+            let px = Math.cos(p.a) * p.r;
+            let py = Math.sin(p.a) * p.r;
+            ctx.globalAlpha = p.alpha;
+            ctx.beginPath();
+            ctx.arc(px, py, p.size, 0, Math.PI*2);
+            ctx.fill();
+        }
+        ctx.globalAlpha = 1;
+
+        ctx.strokeStyle = CONFIG.colors.arena;
+        ctx.lineWidth = 4;
+        ctx.shadowColor = CONFIG.colors.arena;
+        ctx.shadowBlur = 10;
+        ctx.lineJoin = 'round';
+        ctx.beginPath();
+        ctx.moveTo(wallTrack.points[0].x, wallTrack.points[0].y);
+        for(let i=1; i<wallTrack.points.length; i++) ctx.lineTo(wallTrack.points[i].x, wallTrack.points[i].y);
+        ctx.closePath();
+        ctx.stroke();
+
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+        ctx.lineWidth = 1;
+        ctx.shadowBlur = 0;
+        ctx.beginPath();
+        ctx.moveTo(orbitTrack.points[0].x, orbitTrack.points[0].y);
+        for(let i=1; i<orbitTrack.points.length; i++) ctx.lineTo(orbitTrack.points[i].x, orbitTrack.points[i].y);
+        ctx.closePath();
+        ctx.stroke();
+        ctx.restore();
+    }
+
+    function loop(timestamp) {
+        let dt = (timestamp - lastTime) / 1000;
+        if (dt > 0.1) dt = 0.1; 
+        lastTime = timestamp;
+
+        // Force time delta to zero if paused by an ad or tab backgrounding
+        if (YandexManager.isSystemPaused) {
+            dt = 0; 
+        }
+
+        ctx.fillStyle = CONFIG.colors.bg;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        ctx.save();
+        ctx.translate(canvas.width / 2, canvas.height / 2);
+        ctx.scale(scaleFactor, scaleFactor);
+
+        if (gameState === 'PLAYING') {
+            timeSinceServe += dt;
+            if (screenshake > 0) {
+                let sx = (Math.random() - 0.5) * screenshake;
+                let sy = (Math.random() - 0.5) * screenshake;
+                ctx.translate(sx, sy);
+                screenshake -= dt * 60; 
+                if(screenshake < 0) screenshake = 0;
+            }
+
+            updateBackgroundParticles(dt);
+            for (let plat of platforms) plat.update(dt);
+            ball.update(dt);
+            
+            for (let i = particles.length - 1; i >= 0; i--) {
+                particles[i].update(dt);
+                if (particles[i].life <= 0) particles.splice(i, 1);
+            }
+        } else if (gameState === 'GAMEOVER') {
+            for (let i = particles.length - 1; i >= 0; i--) {
+                particles[i].update(dt);
+                if (particles[i].life <= 0) particles.splice(i, 1);
+            }
+        }
+
+        if (gameState !== 'MENU') {
+            drawArena(ctx);
+            for (let plat of platforms) plat.draw(ctx);
+            ball.draw(ctx);
+            
+            ctx.globalCompositeOperation = 'lighter';
+            for (let p of particles) p.draw(ctx);
+        }
+
+        ctx.restore();
+        requestAnimationFrame(loop);
+    }
+
+    requestAnimationFrame(loop);
+
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js'));
+    }
+</script>
+</body>
+</html>
