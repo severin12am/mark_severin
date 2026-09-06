@@ -1,0 +1,1199 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>МозгоПуть — найди невозможную связь</title>
+<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@400;600;700&family=Neucha&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --paper:#faf5eb;--paper-line:#e8e0d0;--paper-dark:#f0e6d4;
+  --ink:#3c2415;--ink-mid:#6b5240;--ink-light:#9b8268;
+  --wood:#8b7355;--wood-light:#c4a876;
+  --tape:rgba(255,230,120,0.55);--tape-border:rgba(200,180,80,0.3);
+  --accent:#c4533a;--success:#4a8c3f;--dash:#b8a080;
+  --sticky1:#fff8a8;--sticky2:#ffc0cb;
+  --shadow:rgba(60,36,21,0.25);
+  --ft:'Caveat',cursive;--fb:'Neucha',cursive;
+}
+html,body{width:100%;height:100%;overflow:hidden;overscroll-behavior:none;font-family:var(--fb);color:var(--ink)}
+body{
+  background:#b39264;
+  background-image:
+    radial-gradient(ellipse at 25% 15%,rgba(255,255,255,.08) 0%,transparent 50%),
+    radial-gradient(ellipse at 75% 85%,rgba(0,0,0,.1) 0%,transparent 50%),
+    repeating-linear-gradient(87deg,transparent 0 3px,rgba(0,0,0,.018) 3px 5px),
+    repeating-linear-gradient(177deg,transparent 0 4px,rgba(0,0,0,.013) 4px 6px),
+    linear-gradient(155deg,#c9ad7e 0%,#b39264 35%,#a28456 65%,#b89a6e 100%);
+  display:flex;align-items:center;justify-content:center;
+  position:fixed;top:0;left:0;right:0;bottom:0;margin:0;
+}
+#app{width:100%;height:100%}
+
+/* -------- Shared Paper -------- */
+.paper{
+  background:var(--paper);
+  background-image:linear-gradient(var(--paper-line) 1px,transparent 1px);
+  background-size:100% 28px;background-position:0 14px;
+  position:relative;
+  box-shadow:3px 5px 14px var(--shadow),-1px -1px 0 rgba(255,255,255,.3),inset 0 0 80px rgba(0,0,0,.015);
+  border-radius:2px;
+}
+.tape-strip{
+  position:absolute;height:24px;z-index:5;
+  background:var(--tape);border:1px solid var(--tape-border);
+  box-shadow:0 1px 3px rgba(0,0,0,.1);pointer-events:none;
+}
+.tape-strip::after{
+  content:'';position:absolute;inset:2px;
+  background:repeating-linear-gradient(90deg,transparent 0 4px,rgba(255,255,255,.35) 4px 5px);
+}
+.tape-center{width:80px;top:-12px;left:50%;transform:translateX(-50%) rotate(-1.5deg)}
+.tape-left{width:70px;top:-10px;left:8%;transform:rotate(-7deg)}
+.tape-right{width:70px;top:-10px;right:8%;left:auto;transform:rotate(5deg)}
+
+.pushpin{
+  width:16px;height:16px;border-radius:50%;position:absolute;z-index:5;
+  background:radial-gradient(circle at 38% 32%,#ff8888,#cc3333 60%,#881111);
+  box-shadow:0 2px 4px rgba(0,0,0,.35),inset 0 -1px 2px rgba(0,0,0,.3);
+}
+
+.dash-line{
+  border:none;border-top:2.5px dashed var(--dash);opacity:.5;margin:1rem 0;
+}
+.dash-border{
+  border:2px dashed var(--dash);border-radius:4px;
+}
+.dash-v{
+  width:0;border-left:2px dashed var(--dash);opacity:.5;
+  align-self:stretch;margin:0 .5rem;
+}
+
+/* -------- Screens -------- */
+.screen{display:none;width:100%;height:100%;align-items:center;justify-content:center;padding:.8rem;flex-direction:column;gap:1rem}
+.screen.active{display:flex}
+
+#menu-screen,#result-screen{overflow-y:auto;-webkit-overflow-scrolling:touch}
+#game-screen{overflow:hidden;padding:.5rem;gap:.4rem}
+
+/* -------- ERROR -------- */
+#error-screen .err-paper{
+  max-width:420px;width:100%;padding:2.5rem 2rem;text-align:center;
+}
+#error-screen .err-paper h2{font-family:var(--ft);font-size:1.6rem;margin-bottom:.8rem}
+#error-screen .err-paper p{font-size:1rem;line-height:1.5}
+
+/* -------- MENU -------- */
+.mode-card.disabled{opacity:.4;pointer-events:none;filter:grayscale(.5)}
+.menu-paper{
+  max-width:520px;width:100%;padding:2.5rem 2rem 2rem;text-align:center;
+  transform:rotate(-.3deg);
+}
+.logo-icon{font-size:2.2rem;margin-bottom:.3rem;filter:drop-shadow(1px 2px 2px rgba(0,0,0,.15))}
+.logo-title{
+  font-family:var(--ft);font-size:2.8rem;font-weight:700;
+  letter-spacing:-.5px;line-height:1;margin-bottom:.1rem;
+  text-shadow:1px 2px 3px rgba(0,0,0,.08);
+}
+.logo-sub{
+  font-family:var(--ft);font-size:1.2rem;color:var(--ink-mid);
+  margin-bottom:.6rem;letter-spacing:1px;
+}
+
+/* Player toggle */
+.player-toggle{
+  display:inline-flex;gap:0;margin:0 auto .8rem;
+  border:2px dashed var(--dash);border-radius:6px;overflow:hidden;
+}
+.player-toggle button{
+  font-family:var(--fb);font-size:1.05rem;
+  padding:.5rem 1.2rem;border:none;cursor:pointer;
+  background:transparent;color:var(--ink-mid);
+  transition:all .2s;position:relative;
+}
+.player-toggle button.active{
+  background:var(--paper-dark);color:var(--ink);font-weight:700;
+  box-shadow:inset 0 0 12px rgba(0,0,0,.04);
+}
+.player-toggle button:not(:last-child){border-right:2px dashed var(--dash)}
+.player-toggle button:hover:not(.active){background:rgba(0,0,0,.03)}
+
+/* Mode cards */
+.mode-cards{display:flex;gap:1rem;justify-content:center;margin:.6rem 0;flex-wrap:wrap}
+.mode-card{
+  width:200px;padding:1.2rem 1rem .9rem;cursor:pointer;
+  transition:transform .2s,box-shadow .2s;position:relative;
+}
+.mode-card:nth-child(1){transform:rotate(-1.5deg)}
+.mode-card:nth-child(2){transform:rotate(1.2deg)}
+.mode-card:hover{transform:rotate(0deg) translateY(-3px);box-shadow:4px 6px 16px var(--shadow)}
+.mode-card.selected{outline:3px solid var(--accent);outline-offset:-3px}
+.mode-card .pushpin{top:-6px;left:50%;transform:translateX(-50%)}
+.mode-card h3{font-family:var(--ft);font-size:1.5rem;margin-top:.4rem;margin-bottom:.2rem}
+.mode-card p{font-size:.82rem;color:var(--ink-mid);line-height:1.35}
+
+/* Rules note */
+.rules-note{
+  margin:.4rem auto;padding:.6rem 1rem;max-width:360px;
+  font-size:.85rem;color:var(--ink-mid);line-height:1.5;
+  border:1.5px dashed var(--dash);border-radius:4px;
+  background:rgba(255,255,255,.3);
+}
+.rules-note span{font-weight:700}
+
+/* Sound toggle */
+.sound-toggle{
+  display:inline-flex;align-items:center;gap:.4rem;
+  font-size:.95rem;cursor:pointer;margin:.3rem 0;
+  color:var(--ink-mid);user-select:none;
+}
+.sound-toggle:hover{color:var(--ink)}
+
+/* Start button */
+.btn-start{
+  display:inline-block;margin-top:.4rem;
+  font-family:var(--ft);font-size:1.8rem;font-weight:700;
+  padding:.5rem 2.5rem;cursor:pointer;
+  background:var(--paper-dark);color:var(--accent);
+  border:2.5px dashed var(--accent);border-radius:6px;
+  box-shadow:2px 3px 8px rgba(0,0,0,.12);
+  transition:all .2s;letter-spacing:.5px;
+}
+.btn-start:hover{
+  background:var(--accent);color:#fff;
+  transform:translateY(-2px);box-shadow:3px 5px 14px rgba(0,0,0,.2);
+}
+
+/* -------- GAME -------- */
+
+/* Game header bar */
+.game-header{
+  width:100%;max-width:900px;display:flex;align-items:flex-start;
+  justify-content:space-between;gap:.5rem;flex-wrap:wrap;
+  flex-shrink:0;
+}
+.game-header-left{display:flex;gap:.5rem;align-items:center}
+.game-header-right{display:flex;gap:.5rem;align-items:center}
+
+/* Sticky note scores */
+.sticky{
+  width:100px;min-height:80px;padding:.5rem .6rem;
+  position:relative;font-family:var(--ft);text-align:center;
+  box-shadow:2px 3px 8px rgba(0,0,0,.18);
+  transform:rotate(-2deg);transition:transform .2s;
+}
+.sticky.s1{background:var(--sticky1);transform:rotate(-2deg)}
+.sticky.s2{background:var(--sticky2);transform:rotate(1.5deg)}
+.sticky.s1.active-player,.sticky.s2.active-player{
+  transform:scale(1.08) rotate(0deg);
+  box-shadow:3px 5px 14px rgba(0,0,0,.25);
+  z-index:2;
+}
+.sticky .sticky-label{font-size:.75rem;font-weight:400;opacity:.7;white-space:nowrap}
+.sticky .sticky-score{font-size:1.9rem;font-weight:700;line-height:1.1}
+.sticky .sticky-detail{font-size:.65rem;opacity:.6;margin-top:.1rem}
+
+/* Menu btn */
+.btn-paper{
+  font-family:var(--fb);font-size:.85rem;
+  padding:.35rem .8rem;cursor:pointer;
+  background:var(--paper);color:var(--ink-mid);
+  border:1.5px dashed var(--dash);border-radius:4px;
+  box-shadow:1px 2px 5px rgba(0,0,0,.1);
+  transition:all .15s;white-space:nowrap;
+}
+.btn-paper:hover{background:var(--paper-dark);color:var(--ink);transform:translateY(-1px)}
+.btn-paper.danger{border-color:var(--accent);color:var(--accent)}
+.btn-paper.danger:hover{background:var(--accent);color:#fff}
+.btn-paper:disabled{opacity:.5;cursor:not-allowed;box-shadow:none}
+
+/* Turn indicator */
+.turn-indicator{
+  font-family:var(--ft);font-size:1.1rem;font-weight:600;
+  padding:.2rem .8rem;
+  border:2px dashed var(--accent);border-radius:20px;
+  color:var(--accent);animation:pulse-border 1.5s ease infinite;
+}
+@keyframes pulse-border{0%,100%{opacity:1}50%{opacity:.5}}
+
+/* ===== [FIX] Chain area: flex-shrink:0 so it NEVER collapses ===== */
+.chains-wrapper{
+  width:100%;max-width:900px;
+  flex:0 0 auto;
+  display:flex;gap:.5rem;overflow:hidden;
+}
+.chain-panel{
+  flex:1;min-width:0;padding:1rem .8rem .6rem;overflow:hidden;
+  display:flex;flex-direction:column;position:relative;
+}
+.chain-panel .tape-strip{width:60px}
+.chain-panel.inactive{opacity:.5;filter:grayscale(.3)}
+.chain-panel .chain-label{
+  font-family:var(--ft);font-size:.85rem;text-align:center;
+  color:var(--ink-mid);margin-bottom:.4rem;
+}
+
+/* Start/Goal display */
+.endpoints{
+  display:flex;align-items:center;justify-content:center;
+  gap:.3rem;margin-bottom:.5rem;font-family:var(--ft);
+}
+.endpoint-word{
+  font-size:1.25rem;font-weight:700;padding:.15rem .6rem;
+  background:rgba(255,255,255,.5);border-radius:3px;
+  border-bottom:2.5px dashed var(--ink-light);
+}
+.endpoint-word.start-word{color:var(--success)}
+.endpoint-word.goal-word{color:var(--accent)}
+.endpoint-arrow{
+  font-size:.9rem;color:var(--ink-light);letter-spacing:2px;
+  border-top:2px dashed var(--dash);
+  width:40px;height:0;position:relative;
+  margin:0 .3rem;
+}
+.endpoint-arrow::after{
+  content:'▸';position:absolute;right:-8px;top:-10px;font-size:1rem;
+}
+
+/* Chain words scroll */
+.chain-scroll{
+  flex:1;overflow-x:auto;overflow-y:hidden;
+  display:flex;align-items:center;gap:0;padding:.5rem 0;
+  min-height:44px;
+}
+.chain-scroll::-webkit-scrollbar{height:5px}
+.chain-scroll::-webkit-scrollbar-thumb{background:var(--dash);border-radius:3px}
+
+.chain-word{
+  flex-shrink:0;padding:.3rem .7rem;
+  background:var(--paper);font-family:var(--ft);font-size:1.15rem;font-weight:600;
+  border:1.5px solid var(--paper-line);border-radius:2px;
+  box-shadow:1px 2px 5px rgba(0,0,0,.1);
+  position:relative;animation:pop-in .3s ease;
+}
+@keyframes pop-in{0%{transform:scale(.7);opacity:0}100%{transform:scale(1);opacity:1}}
+.chain-word.wrong-flash{animation:shake .4s ease;color:var(--accent)}
+@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
+
+/* ===== [FIX] Selection area: flex:1 so it fills remaining space and scrolls ===== */
+.selection-area{
+  width:100%;max-width:900px;
+  flex:1 1 0;
+  min-height:0;
+  padding:1rem .8rem .8rem;position:relative;
+  overflow-y:auto;-webkit-overflow-scrolling:touch;
+}
+.selection-area .tape-strip{width:60px}
+.selection-label{
+  font-family:var(--ft);font-size:.95rem;text-align:center;
+  color:var(--ink-mid);margin-bottom:.5rem;
+}
+
+/* Dual choose panels */
+.dual-choose{
+  display:flex;gap:1.5rem;justify-content:center;flex-wrap:wrap;
+}
+.player-panel{
+  flex:1;min-width:260px;max-width:430px;
+}
+
+/* Word cards grid */
+.cards-grid{
+  display:grid;
+  grid-template-columns:repeat(6,1fr);
+  gap:.6rem;
+  justify-content:center;
+  max-width:100%;
+}
+.word-card{
+  padding:.6rem .8rem;
+  cursor:pointer;
+  font-family:var(--ft);font-size:1.15rem;font-weight:600;
+  position:relative;transition:all .2s;
+  box-shadow:2px 3px 8px rgba(0,0,0,.13);
+  text-align:center;
+  word-break:break-word;
+}
+.word-card:nth-child(6n+1){transform:rotate(-1.8deg)}
+.word-card:nth-child(6n+2){transform:rotate(1.3deg)}
+.word-card:nth-child(6n+3){transform:rotate(-0.7deg)}
+.word-card:nth-child(6n+4){transform:rotate(2.1deg)}
+.word-card:nth-child(6n+5){transform:rotate(-1.4deg)}
+.word-card:nth-child(6n+6){transform:rotate(0.9deg)}
+.word-card .pushpin{top:-5px;left:50%;transform:translateX(-50%);width:12px;height:12px}
+.word-card:hover{
+  transform:rotate(0deg) translateY(-4px)!important;
+  box-shadow:3px 5px 14px rgba(0,0,0,.2);z-index:2;
+}
+.word-card.selected-card{outline:3px solid var(--ink);outline-offset:-2px}
+.word-card.correct-flash{border-color:var(--success);box-shadow:0 0 0 3px rgba(74,140,63,.3)}
+.word-card.wrong-flash{animation:shake .4s ease;color:var(--accent)}
+.word-card.tried{opacity:.4;text-decoration:line-through}
+
+.word-card.hint-flash{
+  animation:hintPulse 1.2s ease-in-out;
+  box-shadow:0 0 0 6px rgba(74,140,63,0.5)!important;
+  z-index:3;
+}
+@keyframes hintPulse{0%,100%{transform:scale(1)}40%{transform:scale(1.15)}70%{transform:scale(0.95)}}
+
+/* Type input area */
+.type-area{
+  display:flex;align-items:center;justify-content:center;gap:.5rem;flex-wrap:wrap;
+}
+.type-input{
+  font-family:var(--ft);font-size:1.4rem;
+  padding:.4rem 1rem;width:260px;max-width:60vw;
+  background:transparent;color:var(--ink);
+  border:none;border-bottom:2.5px dashed var(--ink-mid);
+  outline:none;text-align:center;
+}
+.type-input::placeholder{color:var(--ink-light);opacity:.6}
+.type-input:focus{border-bottom-color:var(--accent)}
+.btn-submit{
+  font-family:var(--ft);font-size:1.2rem;font-weight:700;
+  padding:.3rem 1rem;cursor:pointer;
+  background:var(--accent);color:#fff;
+  border:2px dashed rgba(255,255,255,.4);border-radius:4px;
+  box-shadow:2px 3px 6px rgba(0,0,0,.15);
+  transition:all .15s;
+}
+.btn-submit:hover{transform:translateY(-2px);box-shadow:3px 4px 10px rgba(0,0,0,.2)}
+
+/* Game controls bar */
+.game-controls{
+  width:100%;max-width:900px;
+  display:flex;justify-content:center;gap:.5rem;flex-wrap:wrap;
+  padding:.2rem 0;
+  flex-shrink:0;
+}
+.kb-hint{
+  font-size:.7rem;color:var(--ink-light);text-align:center;
+  width:100%;margin-top:.1rem;
+  border-top:1.5px dashed var(--dash);padding-top:.3rem;opacity:.5;
+  flex-shrink:0;
+}
+
+/* -------- RESULT -------- */
+.result-paper{
+  max-width:480px;width:100%;padding:2.5rem 2rem;text-align:center;
+}
+.result-paper h2{font-family:var(--ft);font-size:2.2rem;margin-bottom:.3rem}
+.result-paper .result-sub{font-family:var(--ft);font-size:1.2rem;color:var(--ink-mid);margin-bottom:1rem}
+.result-scores{display:flex;gap:1rem;justify-content:center;margin-bottom:1rem;flex-wrap:wrap}
+.result-player{padding:1rem;min-width:140px;text-align:center}
+.result-player h3{font-family:var(--ft);font-size:1.3rem;margin-bottom:.3rem}
+.result-player .big-score{font-family:var(--ft);font-size:3rem;font-weight:700}
+.result-player .detail{font-size:.85rem;color:var(--ink-mid)}
+.winner-badge{
+  display:inline-block;font-family:var(--ft);font-size:1.1rem;font-weight:700;
+  padding:.2rem .8rem;color:var(--accent);
+  border:2px dashed var(--accent);border-radius:20px;
+  margin-bottom:.5rem;
+}
+.chain-reveal{
+  text-align:left;padding:.6rem;margin:.6rem 0;
+  border:1.5px dashed var(--dash);border-radius:4px;
+  font-size:.85rem;line-height:1.6;
+}
+.chain-reveal strong{color:var(--accent)}
+
+/* -------- Coffee stain decoration -------- */
+.coffee-stain{
+  position:fixed;pointer-events:none;opacity:.04;z-index:0;
+  width:120px;height:120px;border-radius:50%;
+  border:8px solid #6b4226;
+}
+.coffee-stain.cs1{bottom:8%;right:6%;transform:rotate(15deg)}
+.coffee-stain.cs2{top:12%;left:4%;width:80px;height:80px;border-width:5px;transform:rotate(-10deg)}
+
+/* Custom modal */
+.modal-overlay{
+  position:fixed;inset:0;z-index:100;
+  background:rgba(60,36,21,0.45);
+  display:flex;align-items:center;justify-content:center;
+  padding:1rem;
+}
+.modal-box{
+  max-width:380px;width:100%;padding:2.2rem 1.8rem 1.8rem;
+  text-align:center;font-size:1.05rem;line-height:1.5;
+}
+.modal-box p{margin-bottom:1rem}
+
+/* -------- Responsive -------- */
+@media(max-width:600px){
+  .menu-paper{padding:1.5rem 1rem 1.5rem}
+  .logo-title{font-size:2.2rem}
+  .mode-card{width:160px;padding:.9rem .7rem .7rem}
+  .mode-card h3{font-size:1.2rem}
+
+  /* [FIX] chain panel compact on mobile */
+  .chains-wrapper{flex-direction:column;gap:.3rem}
+  .chain-panel{min-height:auto;padding:.5rem .5rem .3rem}
+  .chain-panel .chain-label{font-size:.75rem;margin-bottom:.2rem}
+  .endpoints{gap:.2rem;margin-bottom:.3rem}
+  .endpoint-word{font-size:1rem;padding:.1rem .4rem}
+  .endpoint-arrow{width:24px}
+  .chain-scroll{min-height:36px;padding:.2rem 0}
+  .chain-word{font-size:1rem;padding:.2rem .5rem}
+
+  .sticky{width:80px;min-height:65px}
+  .sticky .sticky-score{font-size:1.5rem}
+  .cards-grid{grid-template-columns:repeat(3,1fr);gap:.4rem}
+  .word-card{font-size:1.05rem;padding:.5rem .6rem}
+  .game-header{justify-content:center}
+  .dual-choose{gap:1rem}
+  .player-panel{min-width:100%}
+
+  /* hide kb hint on mobile — saves space */
+  .kb-hint{display:none}
+}
+</style>
+</head>
+<body>
+
+<div class="coffee-stain cs1"></div>
+<div class="coffee-stain cs2"></div>
+
+<div id="app">
+  <!-- CUSTOM MODAL -->
+  <div id="customModal" class="modal-overlay" style="display:none">
+    <div class="paper modal-box">
+      <div class="tape-strip tape-center"></div>
+      <p id="modalText"></p>
+      <button class="btn-paper" id="modalOk">OK</button>
+    </div>
+  </div>
+
+  <!-- ERROR SCREEN -->
+  <div id="error-screen" class="screen">
+    <div class="paper err-paper">
+      <div class="tape-strip tape-center"></div>
+      <div style="font-size:2.5rem;margin-bottom:.5rem">📜</div>
+      <h2>Не найдены файлы данных</h2>
+      <hr class="dash-line">
+      <p>Убедитесь, что <strong>words.js</strong> и <strong>graph.js</strong> лежат рядом с index.html.</p>
+    </div>
+  </div>
+
+  <!-- MENU SCREEN -->
+  <div id="menu-screen" class="screen">
+    <div class="paper menu-paper">
+      <div class="tape-strip tape-center"></div>
+      <div class="logo-icon">📜</div>
+      <div class="logo-title">МозгоПуть</div>
+      <div class="logo-sub">— найди невозможную связь —</div>
+      <hr class="dash-line">
+      <div class="player-toggle" id="playerToggle">
+        <button class="active" data-p="1">1 игрок</button>
+        <button data-p="2">2 игрока</button>
+      </div>
+      <div class="mode-cards" id="modeCards">
+        <div class="paper mode-card selected" data-mode="choose">
+          <div class="pushpin"></div>
+          <h3>☞ Выбери</h3>
+          <p>Карточки перед тобой. Среди обманок — правильные ассоциации.</p>
+        </div>
+        <div class="paper mode-card" data-mode="type">
+          <div class="pushpin"></div>
+          <h3>✎ Печатай</h3>
+          <p>Вводи любое слово из словаря. Думай и набирай!</p>
+        </div>
+      </div>
+      <div class="rules-note">
+        ✓ Правильная ассоциация: <span style="color:var(--success)">+1 очко</span><br>
+        ✗ Промах: <span style="color:var(--accent)">−1 очко</span>
+      </div>
+      <div class="sound-toggle" id="soundToggle">🔊 Звук: <span>вкл</span></div>
+      <hr class="dash-line">
+      <button class="btn-start" id="btnStart">▶ Начать игру</button>
+    </div>
+  </div>
+
+  <!-- GAME SCREEN -->
+  <div id="game-screen" class="screen">
+    <div class="game-header">
+      <div class="game-header-left">
+        <div class="sticky s1" id="score1">
+          <div class="sticky-label" id="scoreLabel1">Очки</div>
+          <div class="sticky-score" id="scoreVal1">0</div>
+          <div class="sticky-detail"><span id="correct1">0</span>✓ <span id="wrong1">0</span>✗</div>
+        </div>
+        <div class="sticky s2" id="score2" style="display:none">
+          <div class="sticky-label" id="scoreLabel2">Игрок 2</div>
+          <div class="sticky-score" id="scoreVal2">0</div>
+          <div class="sticky-detail"><span id="correct2">0</span>✓ <span id="wrong2">0</span>✗</div>
+        </div>
+      </div>
+      <div class="game-header-right">
+        <div class="turn-indicator" id="turnIndicator" style="display:none">Ход: Игрок 1</div>
+        <button class="btn-paper" id="btnMenu">← Меню</button>
+      </div>
+    </div>
+
+    <div class="chains-wrapper" id="chainsWrapper">
+      <div class="paper chain-panel" id="chainPanel1">
+        <div class="tape-strip tape-left"></div>
+        <div class="tape-strip tape-right"></div>
+        <div class="chain-label" id="chainLabel1"></div>
+        <div class="endpoints">
+          <span class="endpoint-word start-word" id="startDisplay1">—</span>
+          <span class="endpoint-arrow"></span>
+          <span class="endpoint-word goal-word" id="goalDisplay1">—</span>
+        </div>
+        <div class="chain-scroll" id="chainScroll1"></div>
+      </div>
+      <div class="dash-v" id="chainDivider" style="display:none"></div>
+      <div class="paper chain-panel" id="chainPanel2" style="display:none">
+        <div class="tape-strip tape-left"></div>
+        <div class="tape-strip tape-right"></div>
+        <div class="chain-label" id="chainLabel2">Игрок 2</div>
+        <div class="endpoints">
+          <span class="endpoint-word start-word" id="startDisplay2">—</span>
+          <span class="endpoint-arrow"></span>
+          <span class="endpoint-word goal-word" id="goalDisplay2">—</span>
+        </div>
+        <div class="chain-scroll" id="chainScroll2"></div>
+      </div>
+    </div>
+
+    <!-- Selection Area -->
+    <div class="paper selection-area" id="selectionArea">
+      <div class="tape-strip tape-center"></div>
+      <div id="singleSelection">
+        <div class="selection-label" id="selectionLabel">Выбери ассоциацию:</div>
+        <div class="cards-grid" id="cardsGrid"></div>
+        <div class="type-area" id="typeArea" style="display:none">
+          <input class="type-input" id="typeInput" placeholder="введи слово..." autocomplete="off" autocapitalize="off">
+          <button class="btn-submit" id="btnSubmit">→</button>
+        </div>
+      </div>
+      <div id="dualChooseContainer" style="display:none">
+        <div class="dual-choose">
+          <div class="player-panel">
+            <div class="selection-label" style="color:var(--success);font-weight:700">Игрок 1 <small style="font-size:0.8rem">(WASD + Пробел)</small></div>
+            <div class="cards-grid" id="cardsGrid1" style="grid-template-columns:repeat(5,1fr);"></div>
+          </div>
+          <div class="player-panel">
+            <div class="selection-label" style="color:var(--accent);font-weight:700">Игрок 2 <small style="font-size:0.8rem">(← ↑ ↓ → + Enter)</small></div>
+            <div class="cards-grid" id="cardsGrid2" style="grid-template-columns:repeat(5,1fr);"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="game-controls">
+      <button class="btn-paper" id="btnUndo">↩ Отменить</button>
+      <button class="btn-paper" id="btnHelp">❓ Подсказка</button>
+      <button class="btn-paper danger" id="btnGiveUp">🏳 Сдаться</button>
+      <button class="btn-paper" id="btnNewRound">✦ Новый раунд</button>
+    </div>
+    <div class="kb-hint">Enter — подтвердить · ← → ↑ ↓ навигация · Пробел — выбрать</div>
+  </div>
+
+  <!-- RESULT SCREEN -->
+  <div id="result-screen" class="screen">
+    <div class="paper result-paper">
+      <div class="tape-strip tape-center"></div>
+      <h2 id="resultTitle">Раунд окончен!</h2>
+      <div class="result-sub" id="resultSub"></div>
+      <hr class="dash-line">
+      <div class="result-scores" id="resultScores"></div>
+      <div class="chain-reveal" id="chainReveal"></div>
+      <hr class="dash-line">
+      <button class="btn-start" id="btnPlayAgain" style="font-size:1.4rem;padding:.4rem 1.8rem">✦ Ещё раунд</button>
+      <br>
+      <button class="btn-paper" id="btnBackMenu" style="margin-top:.5rem">← Меню</button>
+    </div>
+  </div>
+</div>
+
+<script src="words.js"></script>
+<script src="graph.js"></script>
+<script>
+(function(){
+'use strict';
+
+/* Block right-click context menu */
+document.addEventListener('contextmenu', function(e){ e.preventDefault(); });
+
+/* Prevent pull-to-refresh / overscroll on touch devices */
+document.addEventListener('touchmove', function(e){
+  var el = e.target;
+  while(el && el !== document.body && el !== document.documentElement){
+    var s = window.getComputedStyle(el);
+    if((s.overflowY === 'auto' || s.overflowY === 'scroll') && el.scrollHeight > el.clientHeight) return;
+    if((s.overflowX === 'auto' || s.overflowX === 'scroll') && el.scrollWidth > el.clientWidth) return;
+    el = el.parentElement;
+  }
+  e.preventDefault();
+}, {passive: false});
+
+/* ============ PLATFORM STUB (local portfolio) ============ */
+const YM = {
+  player: null, isAdShowing: false, _lang: 'ru',
+  async init() {
+    const urlLang = new URLSearchParams(location.search).get('lang');
+    if (urlLang === 'ru' || urlLang === 'en') this._lang = urlLang;
+    else if (navigator.language?.toLowerCase().startsWith('ru')) this._lang = 'ru';
+  },
+  async saveData(d) {
+    try { localStorage.setItem('mozgoput_save', JSON.stringify(d)); } catch (e) {}
+  },
+  async loadData() {
+    try {
+      const raw = localStorage.getItem('mozgoput_save');
+      return raw ? JSON.parse(raw) : {};
+    } catch (e) { return {}; }
+  },
+  getLang() { return this._lang; },
+  pauseAudio() { if (audioCtx && audioCtx.state === 'running') audioCtx.suspend().catch(function(){}); },
+  resumeAudio() { if (G.sound && audioCtx && audioCtx.state === 'suspended' && !this.isAdShowing) audioCtx.resume().catch(function(){}); },
+  showInterstitial(onComplete) { if (onComplete) onComplete(); },
+  showRewarded(onReward, onComplete) { if (onReward) onReward(); if (onComplete) onComplete(); }
+};
+
+window.addEventListener('blur', function() { YM.pauseAudio(); });
+window.addEventListener('focus', function() { YM.resumeAudio(); });
+document.addEventListener('visibilitychange', function() { if (document.hidden) YM.pauseAudio(); else YM.resumeAudio(); });
+
+/* ============ CUSTOM MODAL ============ */
+function showModal(text, onClose) {
+  var overlay = $('customModal');
+  $('modalText').textContent = text;
+  overlay.style.display = 'flex';
+  $('modalOk').onclick = function() { overlay.style.display = 'none'; if (onClose) onClose(); };
+}
+
+/* ============ AUDIO ============ */
+let audioCtx;
+function initAudio(){if(!audioCtx)audioCtx=new(window.AudioContext||window.webkitAudioContext)()}
+function playTone(freq,dur,type,vol){
+  if(type===undefined)type='sine'; if(vol===undefined)vol=.12;
+  if(!G.sound||YM.isAdShowing)return;
+  try{initAudio();
+    const o=audioCtx.createOscillator(),g=audioCtx.createGain();
+    o.type=type;o.frequency.value=freq;
+    g.gain.setValueAtTime(vol,audioCtx.currentTime);
+    g.gain.exponentialRampToValueAtTime(.001,audioCtx.currentTime+dur);
+    o.connect(g);g.connect(audioCtx.destination);o.start();o.stop(audioCtx.currentTime+dur);
+  }catch(e){}
+}
+function sndCorrect(){playTone(520,.15);setTimeout(function(){playTone(660,.2)},100)}
+function sndWrong(){playTone(200,.3,'square',.08)}
+function sndWin(){playTone(523,.15);setTimeout(function(){playTone(659,.15)},120);setTimeout(function(){playTone(784,.3)},240)}
+function sndClick(){playTone(800,.06,'sine',.06)}
+
+/* ============ DATA ============ */
+const hasData = (typeof GRAPH_DATA !== 'undefined' && typeof WORDS_DATA !== 'undefined');
+let BI = {};
+let KEYS = [];
+const DUAL_CARDS = 15;
+
+if (hasData) {
+  BI = GRAPH_DATA || {};
+  KEYS = Object.keys(BI).filter(function(w) {
+    const nb = BI[w];
+    return nb && (Array.isArray(nb) ? nb.length : Object.keys(nb||{}).length) > 0;
+  });
+}
+
+/* ============ GAME STATE ============ */
+const G={
+  screen:'menu', players:1, mode:'choose', sound:true,
+  startWord:'', goalWord:'', currentPlayer:0,
+  p:[{chain:[],score:0,correct:0,wrong:0,done:false},
+     {chain:[],score:0,correct:0,wrong:0,done:false}],
+  batch:[], batch1:[], batch2:[],
+  focusIdx:0, focusIdx1:0, focusIdx2:0,
+  triedWrong:new Set(), bestPathCache:null,
+};
+
+/* ============ HELPERS ============ */
+function resetPlayerState(){
+  G.p[0]={chain:[],score:0,correct:0,wrong:0,done:false};
+  G.p[1]={chain:[],score:0,correct:0,wrong:0,done:false};
+  G.currentPlayer=0;
+}
+function currentP(){return G.p[G.currentPlayer]}
+function currentWordForPlayer(pi){
+  const p=G.p[pi]; return p.chain.length?p.chain[p.chain.length-1]:G.startWord;
+}
+function currentWord(){return currentWordForPlayer(G.currentPlayer)}
+
+function updateSoundUI(){
+  $('soundToggle').querySelector('span').textContent=G.sound?'вкл':'выкл';
+  var t=$('soundToggle').firstChild;
+  if(t&&t.nodeType===3) t.textContent=G.sound?'🔊 Звук: ':'🔇 Звук: ';
+}
+
+/* ============ DOM ============ */
+const $=function(id){return document.getElementById(id)};
+const screens={error:$('error-screen'),menu:$('menu-screen'),game:$('game-screen'),result:$('result-screen')};
+function showScreen(name){Object.values(screens).forEach(function(s){s.classList.remove('active')});screens[name].classList.add('active');G.screen=name;}
+
+/* ============ MENU ============ */
+$('playerToggle').addEventListener('click',function(e){
+  const btn=e.target.closest('button');if(!btn)return;sndClick();
+  $('playerToggle').querySelectorAll('button').forEach(function(b){b.classList.remove('active')});
+  btn.classList.add('active');G.players=+btn.dataset.p;
+  var chooseCard=$('modeCards').querySelector('[data-mode="choose"]');
+  var typeCard=$('modeCards').querySelector('[data-mode="type"]');
+  if(G.players===2){
+    chooseCard.classList.add('disabled');
+    chooseCard.classList.remove('selected');
+    typeCard.classList.add('selected');
+    G.mode='type';
+  }else{
+    chooseCard.classList.remove('disabled');
+  }
+});
+$('modeCards').addEventListener('click',function(e){
+  const card=e.target.closest('.mode-card');if(!card)return;sndClick();
+  $('modeCards').querySelectorAll('.mode-card').forEach(function(c){c.classList.remove('selected')});
+  card.classList.add('selected');G.mode=card.dataset.mode;
+});
+$('soundToggle').addEventListener('click',function(){
+  G.sound=!G.sound;updateSoundUI();if(G.sound)sndClick();
+  YM.saveData({sound:G.sound});
+});
+
+$('btnStart').onclick=$('btnPlayAgain').onclick=startGame;
+$('btnMenu').onclick=$('btnBackMenu').onclick=function(){sndClick();showScreen('menu')};
+$('btnUndo').onclick=undoMove;
+$('btnGiveUp').onclick=giveUp;
+$('btnNewRound').onclick=startGame;
+$('btnSubmit').onclick=submitTyped;
+$('typeInput').addEventListener('keydown',function(e){if(e.key==='Enter')submitTyped()});
+$('btnHelp').onclick=showHint;
+
+/* ============ START GAME ============ */
+function startGame(){
+  sndClick();
+  if(!hasData){showScreen('error');return;}
+  resetPlayerState();
+  const lv=pickLevel();
+  if(!lv){showModal('Не удалось подобрать пару слов');return;}
+  G.startWord=lv.s;G.goalWord=lv.g;G.bestPathCache=lv.opt;
+  G.batch=[];G.batch1=[];G.batch2=[];
+  G.focusIdx=G.focusIdx1=G.focusIdx2=0;
+  G.triedWrong=new Set();
+
+  const is2P=G.players===2;
+  const is2=$('score2'),ti=$('turnIndicator'),cp2=$('chainPanel2'),cd=$('chainDivider');
+  if(is2P){
+    is2.style.display='';ti.style.display='';cp2.style.display='';cd.style.display='';
+    $('scoreLabel1').textContent='Игрок 1';$('chainLabel1').textContent='Игрок 1';
+  }else{
+    is2.style.display='none';ti.style.display='none';cp2.style.display='none';cd.style.display='none';
+    $('scoreLabel1').textContent='Очки';$('chainLabel1').textContent='';
+  }
+
+  if(G.mode==='choose'){
+    $('singleSelection').style.display=is2P?'none':'block';
+    $('dualChooseContainer').style.display=is2P?'block':'none';
+    $('typeArea').style.display='none';
+    $('selectionLabel').textContent=is2P?'':'Выбери ассоциацию:';
+    if(is2P)genDualBatches();else genBatch();
+  }else{
+    $('singleSelection').style.display='block';
+    $('dualChooseContainer').style.display='none';
+    $('cardsGrid').style.display='none';
+    $('typeArea').style.display='flex';
+    $('selectionLabel').textContent='Введи ассоциацию:';
+  }
+
+  const helpBtn=$('btnHelp');
+  helpBtn.disabled=(G.players===2&&G.mode==='choose');
+
+  showScreen('game');renderGame();
+  if(G.mode==='type')$('typeInput').focus();
+}
+
+/* ============ LEVEL PICKING ============ */
+function pickLevel(){
+  for(let attempt=0;attempt<80;attempt++){
+    const a=KEYS[Math.random()*KEYS.length|0];
+    if(!BI[a]||Object.keys(BI[a]||{}).length===0)continue;
+    const visited=new Map();visited.set(a,0);const queue=[a];const candidates=[];
+    while(queue.length){
+      const cur=queue.shift();const d=visited.get(cur);if(d>=7)break;
+      const nb=BI[cur]||{};
+      Object.keys(nb).forEach(function(nx){
+        if(!visited.has(nx)){visited.set(nx,d+1);if(d+1>=2)candidates.push(nx);queue.push(nx);}
+      });
+    }
+    if(candidates.length){
+      const b=candidates[Math.random()*candidates.length|0];
+      const optPath=findBestPath(a,b);
+      return{s:a,g:b,opt:optPath||[a,b]};
+    }
+  }
+  return{s:KEYS[0]||'слово',g:KEYS[1]||'мир',opt:[KEYS[0]||'слово',KEYS[1]||'мир']};
+}
+
+function findBestPath(a,b){
+  if(a===b)return[a];
+  const parent=new Map();parent.set(a,null);const queue=[a];
+  while(queue.length){
+    const cur=queue.shift();const nb=BI[cur]||{};
+    for(const nx of Object.keys(nb)){
+      if(!parent.has(nx)){
+        parent.set(nx,cur);
+        if(nx===b){const path=[];let c=b;while(c){path.unshift(c);c=parent.get(c);}return path;}
+        queue.push(nx);
+      }
+    }
+  }
+  return null;
+}
+
+/* ============ BATCH GENERATION ============ */
+function genBatch(){
+  const cur=currentWord();
+  const nbKeys=BI[cur]?Object.keys(BI[cur]):[];
+  const allNb=nbKeys.filter(function(w){return!currentP().chain.includes(w)});
+  let picks=[];
+  if(G.bestPathCache&&G.bestPathCache.length>currentP().chain.length+1){
+    const next=G.bestPathCache[currentP().chain.length+1];
+    if(allNb.includes(next))picks.push(next);
+  }
+  if(allNb.includes(G.goalWord))picks.push(G.goalWord);
+  const target=Math.max(picks.length,4);
+  const rest=shuffle(allNb.filter(function(w){return!picks.includes(w)}));
+  while(picks.length<target&&rest.length)picks.push(rest.pop());
+  const used=new Set([...picks,cur,...currentP().chain]);
+  const wrong=[];let att=0;
+  while(wrong.length<30-picks.length&&att<8000){
+    const w=KEYS[Math.random()*KEYS.length|0];
+    if(!used.has(w)){wrong.push(w);used.add(w);}att++;
+  }
+  G.batch=shuffle([...picks,...wrong]);G.focusIdx=0;G.triedWrong.clear();renderCards();
+}
+
+function genDualBatches(){genBatchForPlayer(0);genBatchForPlayer(1);}
+
+function genBatchForPlayer(pi){
+  const p=G.p[pi];const cur=currentWordForPlayer(pi);
+  const nbKeys=BI[cur]?Object.keys(BI[cur]):[];
+  const allNb=nbKeys.filter(function(w){return!p.chain.includes(w)});
+  let picks=[];
+  if(G.bestPathCache&&G.bestPathCache.length>p.chain.length+1){
+    const next=G.bestPathCache[p.chain.length+1];
+    if(allNb.includes(next))picks.push(next);
+  }
+  if(allNb.includes(G.goalWord))picks.push(G.goalWord);
+  const target=Math.max(picks.length,3);
+  const rest=shuffle(allNb.filter(function(w){return!picks.includes(w)}));
+  while(picks.length<target&&rest.length)picks.push(rest.pop());
+  const used=new Set([...picks,cur,...p.chain]);
+  const wrong=[];let att=0;
+  while(wrong.length<DUAL_CARDS-picks.length&&att<8000){
+    const w=KEYS[Math.random()*KEYS.length|0];
+    if(!used.has(w)){wrong.push(w);used.add(w);}att++;
+  }
+  if(pi===0)G.batch1=shuffle([...picks,...wrong]);
+  else G.batch2=shuffle([...picks,...wrong]);
+  renderDualCards();
+}
+
+function shuffle(a){const r=[...a];for(let i=r.length-1;i>0;i--){const j=Math.random()*(i+1)|0;[r[i],r[j]]=[r[j],r[i]]}return r;}
+
+/* ============ RENDER ============ */
+function renderGame(){
+  $('scoreVal1').textContent=G.p[0].score;
+  $('correct1').textContent=G.p[0].correct;
+  $('wrong1').textContent=G.p[0].wrong;
+  $('scoreVal2').textContent=G.p[1].score;
+  $('correct2').textContent=G.p[1].correct;
+  $('wrong2').textContent=G.p[1].wrong;
+
+  $('score1').classList.toggle('active-player',G.players===2&&G.currentPlayer===0);
+  $('score2').classList.toggle('active-player',G.players===2&&G.currentPlayer===1);
+  if(G.players===2){
+    $('turnIndicator').textContent='Ход: Игрок '+(G.currentPlayer+1);
+    $('chainPanel1').classList.toggle('inactive',G.currentPlayer!==0);
+    $('chainPanel2').classList.toggle('inactive',G.currentPlayer!==1);
+  }
+
+  const sw=G.startWord,gw=G.goalWord;
+  ['1','2'].forEach(function(n){
+    const sd=$('startDisplay'+n),gd=$('goalDisplay'+n);
+    if(sd){sd.textContent=sw;gd.textContent=gw;}
+  });
+
+  renderChain(0,$('chainScroll1'));
+  if(G.players===2)renderChain(1,$('chainScroll2'));
+  if(G.players===2&&G.mode==='choose')renderDualCards();
+  else if(G.mode==='choose')renderCards();
+}
+
+function renderChain(pi,container){
+  container.innerHTML='';
+  const p=G.p[pi];
+  const startEl=document.createElement('div');
+  startEl.className='chain-word';startEl.style.borderColor='var(--success)';
+  startEl.textContent=G.startWord;container.appendChild(startEl);
+  p.chain.forEach(function(w){
+    const dash=document.createElement('div');dash.className='chain-dash';container.appendChild(dash);
+    const el=document.createElement('div');el.className='chain-word';el.textContent=w;container.appendChild(el);
+  });
+  if(!p.done){
+    const dash=document.createElement('div');dash.className='chain-dash';dash.style.opacity='.3';container.appendChild(dash);
+    const q=document.createElement('div');q.className='chain-word';q.style.opacity='.3';q.style.borderStyle='dashed';
+    q.textContent='?';container.appendChild(q);
+  }else{
+    const dash=document.createElement('div');dash.className='chain-dash';container.appendChild(dash);
+    const el=document.createElement('div');el.className='chain-word';el.style.borderColor='var(--accent)';
+    el.style.fontWeight='700';el.textContent=G.goalWord;container.appendChild(el);
+  }
+  container.scrollLeft=container.scrollWidth;
+}
+
+function renderCards(){
+  const grid=$('cardsGrid');grid.innerHTML='';
+  G.batch.forEach(function(w,i){
+    const d=document.createElement('div');d.className='paper word-card';
+    if(G.triedWrong.has(w))d.classList.add('tried');
+    if(i===G.focusIdx)d.classList.add('selected-card');
+    d.innerHTML='<div class="pushpin"></div>'+w;
+    d.onclick=function(){if(!G.triedWrong.has(w))cardClick(w,d)};
+    grid.appendChild(d);
+  });
+}
+
+function renderDualCards(){
+  renderCardsForPlayer(0,$('cardsGrid1'),G.batch1,G.focusIdx1);
+  renderCardsForPlayer(1,$('cardsGrid2'),G.batch2,G.focusIdx2);
+}
+
+function renderCardsForPlayer(pi,grid,batch,focusIdx){
+  grid.innerHTML='';
+  batch.forEach(function(w,i){
+    const d=document.createElement('div');d.className='paper word-card';
+    if(i===focusIdx)d.classList.add('selected-card');
+    d.innerHTML='<div class="pushpin"></div>'+w;
+    d.onclick=function(){handleDualCardClick(pi,w,d)};
+    grid.appendChild(d);
+  });
+}
+
+/* ============ CARD CLICK (1P) ============ */
+function cardClick(w,el){
+  if(YM.isAdShowing)return;
+  const cur=currentWord();
+  const isConnected=BI[cur]&&(Array.isArray(BI[cur])?BI[cur].includes(w):BI[cur][w]!==undefined);
+  if(isConnected&&!currentP().chain.includes(w)){
+    el.classList.add('correct-flash');sndCorrect();
+    currentP().chain.push(w);currentP().score++;currentP().correct++;
+    renderGame();
+    if(w===G.goalWord){winRound();return;}
+    setTimeout(function(){genBatch()},300);
+  }else{
+    el.classList.add('wrong-flash');G.triedWrong.add(w);sndWrong();
+    currentP().score--;currentP().wrong++;renderGame();
+    if(G.players===2)switchTurn();
+    setTimeout(function(){el.classList.remove('wrong-flash');renderCards()},450);
+  }
+}
+
+/* ============ DUAL CARD CLICK ============ */
+function handleDualCardClick(pi,w,el){
+  if(YM.isAdShowing)return;
+  const p=G.p[pi];const cur=currentWordForPlayer(pi);
+  const isConnected=BI[cur]&&(Array.isArray(BI[cur])?BI[cur].includes(w):BI[cur][w]!==undefined);
+  if(isConnected&&!p.chain.includes(w)){
+    el.classList.add('correct-flash');sndCorrect();
+    p.chain.push(w);p.score++;p.correct++;renderGame();
+    if(w===G.goalWord){p.done=true;if(G.p[0].done&&G.p[1].done)checkRoundEnd();return;}
+    genBatchForPlayer(pi);
+  }else{
+    el.classList.add('wrong-flash');sndWrong();p.score--;p.wrong++;renderGame();
+    setTimeout(function(){el.classList.remove('wrong-flash');renderDualCards()},450);
+  }
+}
+
+/* ============ TYPE MODE ============ */
+function submitTyped(){
+  if(YM.isAdShowing)return;
+  const input=$('typeInput');let word=input.value.trim().toLowerCase();
+  if(!word)return;input.value='';
+  const cur=currentWord();const p=currentP();
+  const isConnected=BI[cur]&&(Array.isArray(BI[cur])?BI[cur].includes(word):BI[cur][word]!==undefined);
+  if(!KEYS.includes(word)){sndWrong();p.score--;p.wrong++;flashInputError();}
+  else if(isConnected&&!p.chain.includes(word)){
+    sndCorrect();p.chain.push(word);p.score++;p.correct++;renderGame();
+    if(word===G.goalWord){winRound();return;}
+  }else{sndWrong();p.score--;p.wrong++;flashInputError();}
+  renderGame();
+  if(G.players===2)switchTurn();else input.focus();
+}
+
+function flashInputError(){
+  const input=$('typeInput');input.style.borderBottomColor='var(--accent)';
+  setTimeout(function(){input.style.borderBottomColor=''},400);
+}
+
+/* ============ TURN & END ============ */
+function switchTurn(){
+  let next=(G.currentPlayer+1)%G.players;
+  if(G.p[next].done){
+    if(G.p.slice(0,G.players).every(function(p){return p.done})){checkRoundEnd();return;}
+    return;
+  }
+  G.currentPlayer=next;G.focusIdx=0;renderGame();
+  if(G.mode==='choose'&&G.players===1)genBatch();
+  else if(G.mode==='type')$('typeInput').focus();
+}
+
+function undoMove(){
+  if(YM.isAdShowing)return;sndClick();
+  const p=currentP();if(p.chain.length<=1||p.done)return;
+  p.chain.pop();renderGame();
+  if(G.mode==='choose'){if(G.players===2)genDualBatches();else genBatch();}
+  else $('typeInput').focus();
+}
+
+function giveUp(){
+  if(YM.isAdShowing)return;sndWrong();
+  currentP().done=true;
+  if(G.players===2){G.p[0].done=true;G.p[1].done=true;}
+  checkRoundEnd();
+}
+
+function winRound(){currentP().done=true;sndWin();checkRoundEnd();}
+
+function checkRoundEnd(){
+  if(G.p.slice(0,G.players).every(function(p){return p.done})){
+    YM.showInterstitial(function(){displayResult()});
+  }
+}
+
+/* ============ RESULT ============ */
+function displayResult(){
+  const rs=$('resultScores');rs.innerHTML='';
+  const active=G.p.slice(0,G.players);
+  let max=-Infinity,winner=-1;
+  active.forEach(function(p,i){if(p.score>max){max=p.score;winner=i;}});
+  const tied=active.filter(function(p){return p.score===max}).length>1;
+
+  if(G.players===2){
+    $('resultTitle').textContent=tied?'Ничья!':'Победа!';
+    $('resultSub').textContent=tied?'Равный счёт':'Игрок '+(winner+1)+' побеждает!';
+  }else{
+    $('resultTitle').textContent='Раунд окончен!';$('resultSub').textContent='';
+  }
+
+  active.forEach(function(p,i){
+    const div=document.createElement('div');div.className='paper result-player';
+    const label=G.players===2?'Игрок '+(i+1):'Результат';
+    const badge=(G.players===2&&!tied&&i===winner)?'<div class="winner-badge">★ Победитель</div>':'';
+    const reached=p.chain[p.chain.length-1]===G.goalWord;
+    div.innerHTML=badge+'<h3>'+label+'</h3><div class="big-score" style="color:'+(p.score>=0?'var(--success)':'var(--accent)')+'">'+p.score+'</div>'+
+      '<div class="detail">✓ '+p.correct+' &nbsp; ✗ '+p.wrong+'</div>'+
+      '<div class="detail" style="margin-top:.2rem">'+(reached?'🎯 Цель достигнута':'🏳 Сдался')+'</div>';
+    if(G.players===2)div.style.background=i===0?'var(--sticky1)':'var(--sticky2)';
+    rs.appendChild(div);
+  });
+
+  const reveal=$('chainReveal');
+  if(G.bestPathCache){
+    reveal.innerHTML='<strong>Кратчайший путь ('+(G.bestPathCache.length-1)+' шагов):</strong><br>'+G.bestPathCache.join(' <span style="color:var(--dash)">---</span> ');
+    reveal.style.display='';
+  }
+
+  var bestScore=active[0].score;
+  YM.loadData().then(function(saved){
+    var data=saved||{};
+    if(!data.bestScore||bestScore>data.bestScore)data.bestScore=bestScore;
+    data.totalGames=(data.totalGames||0)+1;data.sound=G.sound;
+    YM.saveData(data);
+  });
+
+  showScreen('result');
+}
+
+/* ============ HINT ============ */
+function showHint(){
+  if(YM.isAdShowing)return;sndClick();
+  const p=currentP();const path=G.bestPathCache;
+  if(!path||path.length<=p.chain.length+1)return;
+  const nextHintWord=path[p.chain.length+1];
+  if(G.mode==='choose'){
+    let grid,batch;
+    if(G.players===1){grid=$('cardsGrid');batch=G.batch;}
+    else{grid=G.currentPlayer===0?$('cardsGrid1'):$('cardsGrid2');batch=G.currentPlayer===0?G.batch1:G.batch2;}
+    const idx=batch.indexOf(nextHintWord);
+    if(idx!==-1&&grid.children[idx]){
+      const card=grid.children[idx];card.classList.add('hint-flash');
+      setTimeout(function(){card.classList.remove('hint-flash')},2200);
+    }
+  }else if(G.mode==='type'){
+    const input=$('typeInput');const oldPH=input.placeholder;
+    input.placeholder=nextHintWord;input.style.borderBottomColor='var(--success)';
+    setTimeout(function(){input.placeholder=oldPH;input.style.borderBottomColor=''},2800);
+  }
+}
+
+/* ============ KEYBOARD NAVIGATION ============ */
+function navigateDualGrid(pi,dir){
+  const cols=5;let idx=pi===0?G.focusIdx1:G.focusIdx2;const total=DUAL_CARDS;
+  if(dir==='ArrowRight')idx=(idx+1)%total;
+  else if(dir==='ArrowLeft')idx=(idx-1+total)%total;
+  else if(dir==='ArrowDown')idx=idx+cols<total?idx+cols:idx%cols;
+  else if(dir==='ArrowUp'){const next=idx-cols;idx=next>=0?next:Math.max(0,total-cols+(idx%cols));}
+  if(pi===0)G.focusIdx1=idx;else G.focusIdx2=idx;
+  sndClick();renderDualCards();
+}
+
+document.addEventListener('keydown',function(e){
+  if(G.screen!=='game'||YM.isAdShowing)return;
+
+  if(G.players===2&&G.mode==='choose'){
+    const code=e.code;
+    if(code==='KeyA'||code==='KeyD'||code==='KeyW'||code==='KeyS'||code==='Space'){
+      e.preventDefault();let dir=null;
+      if(code==='KeyA')dir='ArrowLeft';else if(code==='KeyD')dir='ArrowRight';
+      else if(code==='KeyW')dir='ArrowUp';else if(code==='KeyS')dir='ArrowDown';
+      if(dir)navigateDualGrid(0,dir);
+      if(code==='Space'){const card=$('cardsGrid1').children[G.focusIdx1];if(card)handleDualCardClick(0,G.batch1[G.focusIdx1],card);}
+      return;
+    }
+    if(['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Enter'].includes(e.key)){
+      e.preventDefault();
+      if(['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(e.key))navigateDualGrid(1,e.key);
+      if(e.key==='Enter'){const card=$('cardsGrid2').children[G.focusIdx2];if(card)handleDualCardClick(1,G.batch2[G.focusIdx2],card);}
+      return;
+    }
+  }
+
+  if(G.mode==='choose'&&G.players===1){
+    if(['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(e.key)){
+      e.preventDefault();const cols=6;let idx=G.focusIdx;const total=G.batch.length;
+      if(e.key==='ArrowRight')idx=(idx+1)%total;
+      else if(e.key==='ArrowLeft')idx=(idx-1+total)%total;
+      else if(e.key==='ArrowDown')idx=idx+cols<total?idx+cols:idx%cols;
+      else if(e.key==='ArrowUp'){const next=idx-cols;idx=next>=0?next:Math.max(0,total-cols+(idx%cols));}
+      G.focusIdx=idx;sndClick();renderCards();
+    }
+    if(e.key==='Enter'||e.key===' '){
+      e.preventDefault();const card=$('cardsGrid').children[G.focusIdx];
+      if(card)cardClick(G.batch[G.focusIdx],card);
+    }
+  }
+
+  if(e.key==='Escape')showScreen('menu');
+});
+
+/* ============ INIT ============ */
+if(!hasData)showScreen('error');else showScreen('menu');
+
+YM.init().then(function(){return YM.loadData()}).then(function(data){
+  if(data&&typeof data.sound!=='undefined'){G.sound=data.sound;updateSoundUI();}
+}).catch(function(e){console.warn('[YG] Failed to load saved data:',e)});
+
+})();
+</script>
+</body>
+</html>
