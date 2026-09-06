@@ -105,7 +105,7 @@ Word association puzzle! Connect a start word to a target word through the short
 
 ## 6. Lest / Лестница
 
-**English Title:** Word Ladder (Lest)  
+**English Title:** Letter Ladder  
 **Russian Title:** Лестница
 
 **Description (EN):**  

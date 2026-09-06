@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<title>Word Ladder — letter by letter</title>
+<title>Letter Ladder — letter by letter</title>
 <script>
 window.GAME_LANG = (function(){
   try {
@@ -137,7 +137,7 @@ body{font-family:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;background
 </head>
 <body>
 <div id="root">
-<header class="hdr"><h1 id="hdrTitle">Word Ladder</h1><div class="hdr-right"><div class="lang-toggle" id="langToggle"><button data-lang="en" id="langEn">EN</button><button data-lang="ru" id="langRu">RU</button></div><button class="ib" id="sndB">🔊</button></div></header>
+<header class="hdr"><h1 id="hdrTitle">Letter Ladder</h1><div class="hdr-right"><div class="lang-toggle" id="langToggle"><button data-lang="en" id="langEn">EN</button><button data-lang="ru" id="langRu">RU</button></div><button class="ib" id="sndB">🔊</button></div></header>
 <main id="app"></main>
 </div>
 <div class="mo" id="winMo"><div class="mc"><div class="me">🎉</div><h2 id="winH">Brilliant!</h2><p id="winT"></p><div id="winScore"></div><button class="mb" id="winN">Next</button><button class="mb mb2" id="winM">Menu</button></div></div>
@@ -151,13 +151,13 @@ body{font-family:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;background
 const LANG = window.GAME_LANG === 'ru' ? 'ru' : 'en';
 const I18N = {
   en: {
-    title: 'Word Ladder — letter by letter',
-    hdr: 'Word Ladder',
+    title: 'Letter Ladder — letter by letter',
+    hdr: 'Letter Ladder',
     winH: 'Brilliant!',
     givH: 'Solution',
     next: 'Next',
     menu: 'Menu',
-    menuTitle: 'Word Ladder — letter by letter',
+    menuTitle: 'Letter Ladder — letter by letter',
     menuSub: 'Turn one word into another, changing exactly one letter per step.',
     wordLen: 'Word length',
     difficulty: 'Difficulty',
@@ -200,13 +200,13 @@ const I18N = {
     dictFile: 'english-nouns.js'
   },
   ru: {
-    title: 'Лест - буква за буквой',
-    hdr: 'Лест - буква за буквой',
+    title: 'Лестница — буква за буквой',
+    hdr: 'Лестница',
     winH: 'Великолепно!',
     givH: 'Решение',
     next: 'Следующая',
     menu: 'В меню',
-    menuTitle: 'Лест - буква за буквой',
+    menuTitle: 'Лестница — буква за буквой',
     menuSub: 'Превратите одно слово в другое, меняя по одной букве за шаг.',
     wordLen: 'Длина слов',
     difficulty: 'Сложность',
