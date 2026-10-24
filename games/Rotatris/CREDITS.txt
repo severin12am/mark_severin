@@ -1,0 +1,54 @@
+Rotatris — credits and licenses
+================================
+
+This game is an original work. It does not use characters, logos, names, or
+music from other games or brands.
+
+Artwork
+-------
+The enamel tiles, stone board, brass frame, observatory background, icons,
+and interface are drawn for Rotatris. No third-party images are included.
+
+Music
+-----
+"Orrery" is an original musical loop composed for Rotatris and saved as
+assets/music/orrery.ogg. It is not copied from a sample library or another
+game.
+
+Sound effects
+-------------
+Short interface and impact sounds are from Kenney's packs:
+
+- Interface Sounds 1.0 (Kenney, 2020)
+- Impact Sounds 1.0 (Kenney, 2019)
+
+Both packs are released under Creative Commons Zero (CC0 1.0 Universal).
+The author has waived all copyright and related rights. You can copy, change,
+and use the sounds, including in commercial work, without asking permission.
+Crediting Kenney is appreciated and is not required.
+
+https://creativecommons.org/publicdomain/zero/1.0/
+
+Fonts
+-----
+Fraunces
+  Copyright 2018 The Fraunces Project Authors
+  (https://github.com/undercasetype/Fraunces)
+  Licensed under the SIL Open Font License, Version 1.1.
+  Full text: assets/fonts/OFL-Fraunces.txt
+
+Outfit
+  Copyright 2021 The Outfit Project Authors
+  (https://github.com/Outfitio/Outfit-Fonts)
+  Licensed under the SIL Open Font License, Version 1.1.
+  Full text: assets/fonts/OFL-Outfit.txt
+
+The SIL Open Font License lets you use, embed, and redistribute these fonts,
+including in a commercial game. You may not sell the fonts by themselves.
+
+Playgama Bridge
+---------------
+The game loads the Playgama Bridge SDK from Playgama's official address, as
+their publishing guide requires. The SDK is not a game asset and is not
+bundled in this archive. No other outside services, analytics, or links are
+used.
