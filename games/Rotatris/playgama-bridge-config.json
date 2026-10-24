@@ -1,0 +1,21 @@
+{
+  "advertisement": {
+    "minimumDelayBetweenInterstitial": 75,
+    "initialInterstitialDelay": 45,
+    "interstitial": {
+      "preloadOnStart": "game_over",
+      "placementFallback": "game_over",
+      "placements": [
+        { "id": "game_over" },
+        { "id": "menu_return" }
+      ]
+    },
+    "rewarded": {
+      "preloadOnStart": "core_charge",
+      "placementFallback": "core_charge",
+      "placements": [
+        { "id": "core_charge" }
+      ]
+    }
+  }
+}

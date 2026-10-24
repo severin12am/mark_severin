@@ -37,15 +37,15 @@ window.GAME_CATALOG = {
     {
       "id": "rotatris",
       "folder": "Rotatris",
-      "languages": ["ru", "en"],
+      "languages": ["en"],
       "title": { "ru": "Крутитрис", "en": "Rotatris" },
       "description": {
-        "ru": "Тетрис с поворотом всего поля — собирай кольца в неоновом аркаде.",
-        "en": "Tetris reimagined — rotate the whole board and clear perimeter rings."
+        "ru": "Головоломка на латунном столе: поворачивай фигуры или всё поле и закрывай кольца вокруг ядра.",
+        "en": "A brass observatory puzzle. Turn the pieces, or the whole board, and close each ring around the core."
       },
       "tags": ["arcade", "puzzle"],
       "featured": false,
-      "preview": "preview.mp4"
+      "preview": "preview.png"
     },
     {
       "id": "nucleon",
